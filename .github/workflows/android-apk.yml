@@ -15,7 +15,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub ubuntu-latest fournit deja le SDK et sdkmanager.
+      # setup-android@v3 tente d'installer le paquet retire « tools ».
+      - name: Verifier Android SDK disponible
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          command -v sdkmanager
+          sdkmanager --version
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
