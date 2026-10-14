@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ca.lexos.terminal'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'ca.lexos.terminal'
+        minSdk 26
+        targetSdk 28
+        versionCode 1
+        versionName '0.1.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildTypes {
+        release { minifyEnabled false }
+        debug { minifyEnabled false }
+    }
+    packagingOptions { jniLibs { useLegacyPackaging true } }
+}
+
+dependencies {
+    implementation project(':terminal-view')
+    implementation project(':terminal-emulator')
+    implementation 'androidx.annotation:annotation:1.9.0'
+}

@@ -1,0 +1,6 @@
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+include ':app', ':terminal-emulator', ':terminal-view'
+project(':terminal-emulator').projectDir = file('third_party/termux-app/terminal-emulator')
+project(':terminal-view').projectDir = file('third_party/termux-app/terminal-view')

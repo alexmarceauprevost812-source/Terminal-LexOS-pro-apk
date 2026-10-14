@@ -1,0 +1,44 @@
+name: LexOS Terminal - Android APK test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Installer Android SDK et NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
+      - name: Recuperer les modules libres Termux
+        run: bash scripts/fetch-termux-engine.sh
+      - name: Verifier les composants et l'interface
+        run: python3 tests/check_project.py
+      - name: Compiler l'APK Android
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verifier l'APK et empreinte SHA256
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk | tee SHA256SUMS
+      - name: Archiver APK sans publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: LexOS-Terminal-Android-debug
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
