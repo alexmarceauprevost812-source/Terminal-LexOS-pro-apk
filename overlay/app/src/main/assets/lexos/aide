@@ -28,7 +28,7 @@ BLEU=$'\e[1;38;2;44;200;255m'      # bleu néon pour « toi »
 _e_backend="${LEXAI_BACKEND:-}"; _e_url="${LEXAI_URL:-}"; _e_model="${LEXAI_MODEL:-}"
 _e_lurl="${LEXAI_LLAMA_URL:-}"; _e_gguf="${LEXAI_GGUF:-}"
 [ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
-LEXAI_BACKEND="${_e_backend:-${LEXAI_BACKEND:-ollama}}"
+LEXAI_BACKEND="${_e_backend:-${LEXAI_BACKEND:-llama}}"
 LEXAI_URL="${_e_url:-${LEXAI_URL:-http://127.0.0.1:11434}}"
 LEXAI_MODEL="${_e_model:-${LEXAI_MODEL:-llama3.2:1b}}"
 LEXAI_LLAMA_URL="${_e_lurl:-${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}}"
@@ -66,15 +66,17 @@ check_backend() {
     if [ "$LEXAI_BACKEND" = "llama" ]; then
         if ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/health" >/dev/null 2>&1 \
           && ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/v1/models" >/dev/null 2>&1; then
-            echo "${RED}Serveur llama.cpp injoignable sur $LEXAI_LLAMA_URL${R}"
-            echo "${D}→ Lance-le :  aide --serve-gguf   (utilise LEXAI_GGUF)${R}"
-            exit 1
+            # Auto : installe llama.cpp, télécharge le modèle et démarre le serveur
+            if command -v lexos-ia >/dev/null 2>&1; then
+                lexos-ia || exit 1
+            else
+                echo "${RED}Serveur llama.cpp injoignable.${R} ${D}Fais : aide --serve-gguf${R}"; exit 1
+            fi
         fi
     else
         if ! curl -s --max-time 3 "$LEXAI_URL/api/tags" >/dev/null 2>&1; then
-            # Auto : installe Ollama, démarre le serveur et télécharge le modèle
             if command -v lexos-ia >/dev/null 2>&1; then
-                lexos-ia "$LEXAI_MODEL" || exit 1
+                lexos-ia || exit 1
             else
                 echo "${RED}Ollama injoignable.${R} ${D}Fais : aide --install-ia${R}"; exit 1
             fi
