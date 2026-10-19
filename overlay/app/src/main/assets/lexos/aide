@@ -45,6 +45,10 @@ SYSTEM_EXPLAIN="Tu es l'assistant LexOS Pro. On te donne une commande.
 Explique en français du Québec, simplement, ce qu'elle fait, option par option si utile.
 Signale tout danger. Sois concis."
 
+SYSTEM_CHAT="Tu es ti-lex, un assistant IA amical en français du Québec.
+Discute de façon naturelle et utile, réponds à tout (pas seulement des commandes).
+Sois clair et concis."
+
 need_dep() {
     local missing=""
     command -v curl >/dev/null 2>&1 || missing="$missing curl"
@@ -127,7 +131,16 @@ ask() {
         [ "$LEXAI_BACKEND" = "ollama" ] && echo "${D}→ Modèle absent ? Fais :  ollama pull $LEXAI_MODEL${R}"
         return 1
     fi
+    _LAST="$content"            # réponse brute (pour le mode /auto)
     printf '%s\n' "$content" | __hl
+}
+
+# Extrait la commande de la réponse (bloc ``` en priorité, sinon 1re ligne non vide)
+__extract_cmd() {
+    local c
+    c="$(printf '%s\n' "$1" | awk 'f&&/^```/{exit} f{print;next} /^```/{f=1}' | head -1)"
+    [ -z "$c" ] && c="$(printf '%s\n' "$1" | grep -m1 -vE '^[[:space:]]*$')"
+    printf '%s' "$c"
 }
 
 serve_gguf() {
@@ -242,17 +255,38 @@ case "${1:-}" in
         __say; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
     "")
         need_dep; check_backend; banner
-        echo "${D}Mode conversation. Écris ta tâche.  /model = changer de modèle  ·  /q = quitter${R}"
+        MODE="codex"
+        echo "${D}Modes :${R} ${B}/codex${R} commande  ·  ${B}/chat${R} discuter  ·  ${B}/auto${R} exécute tout seul  ·  ${B}/model${R}  ·  ${B}/q${R}"
         while :; do
             printf "${BLEU}toi ❯ ${R}"; read -r q || break
             case "$q" in
                 q|quit|exit|/q|/quit|/exit) break ;;
                 "") continue ;;
-                /help|/aide) echo "${D}/model [nom]  changer de modèle   ·   /q  quitter${R}"; continue ;;
+                /help|/aide) echo "${D}/codex  /chat  /auto  ·  /model [nom]  ·  /q${R}"; continue ;;
                 /model*) __cmd_model "${q#/model}"; continue ;;
-                /*) echo "${D}Commande inconnue. /model [nom]  ·  /q${R}"; continue ;;
+                /chat) MODE="chat"; echo "${G}Mode CHAT${R} ${D}— discute librement.${R}"; continue ;;
+                /codex|/suggest) MODE="codex"; echo "${G}Mode CODEX${R} ${D}— l'IA propose la commande.${R}"; continue ;;
+                /auto) MODE="auto"; echo "${Y}Mode AUTO${R} ${D}— l'IA propose ET exécute (tu confirmes avant).${R}"; continue ;;
+                /*) echo "${D}Commande inconnue. /codex  /chat  /auto  /model  /q${R}"; continue ;;
             esac
-            __say; ask "$SYSTEM_SUGGEST" "$q"; echo
+            __say
+            if [ "$MODE" = "chat" ]; then
+                ask "$SYSTEM_CHAT" "$q"; echo
+            else
+                ask "$SYSTEM_SUGGEST" "$q"; echo
+                if [ "$MODE" = "auto" ]; then
+                    CMD="$(__extract_cmd "$_LAST")"
+                    if [ -n "$CMD" ]; then
+                        printf "${Y}Exécuter :${R} %s\n${D}[Entrée = oui, n = non]${R} " "$CMD"
+                        read -r ok </dev/tty
+                        case "$ok" in
+                            ""|o|O|y|Y) echo "${D}─── exécution ───${R}"; bash -c "$CMD"; echo "${D}─────────────────${R}" ;;
+                            *) echo "${D}Annulé.${R}" ;;
+                        esac
+                    fi
+                fi
+                echo
+            fi
         done
         echo "${D}À la prochaine.${R}"; exit 0 ;;
     *)
