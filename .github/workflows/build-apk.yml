@@ -86,8 +86,8 @@ jobs:
           path: LexOS-Pro-debug.apk
           if-no-files-found: error
 
-      - name: Publier la Release « latest » (mises à jour) — depuis main seulement
-        if: github.ref == 'refs/heads/main'
+      - name: Publier la Release « latest » (mises à jour)
+        if: github.ref == 'refs/heads/claude' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest

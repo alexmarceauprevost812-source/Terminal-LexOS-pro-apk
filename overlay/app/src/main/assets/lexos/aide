@@ -71,20 +71,47 @@ check_backend() {
     fi
 }
 
+# Spinner d'emoji animé pendant que l'IA travaille (sur stderr, pour ne pas polluer la sortie)
+__spin() {
+    local msg="$1" pid="$2" i=0
+    local f=(😛 😜 😝 😀 😃 😄 😁 🤖 ⚡ 🔥 ✨ 💫 🧠 👾)
+    if [ ! -t 2 ]; then wait "$pid"; return; fi
+    tput civis 2>/dev/null
+    while kill -0 "$pid" 2>/dev/null; do
+        printf '\r\e[1;38;2;248;120;0m%s\e[0m %s ' "${f[i % ${#f[@]}]}" "$msg" >&2
+        i=$((i + 1)); sleep 0.15
+    done
+    printf '\r\e[K' >&2
+    tput cnorm 2>/dev/null
+}
+
+# POST avec spinner : $1=url  $2=payload  $3=1 -> entête JSON
+__post() {
+    local tmp; tmp=$(mktemp)
+    if [ "${3:-}" = "1" ]; then
+        curl -s --max-time 180 "$1" -H 'Content-Type: application/json' -d "$2" >"$tmp" 2>/dev/null &
+    else
+        curl -s --max-time 180 "$1" -d "$2" >"$tmp" 2>/dev/null &
+    fi
+    local pid=$!
+    __spin "LexOS réfléchit…" "$pid"
+    wait "$pid"
+    cat "$tmp"; rm -f "$tmp"
+}
+
 ask() {
     local system="$1"; local user="$2" resp content err
     if [ "$LEXAI_BACKEND" = "llama" ]; then
         local payload
         payload=$(jq -n --arg s "$system" --arg u "$user" \
             '{stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
-        resp=$(curl -s --max-time 180 "$LEXAI_LLAMA_URL/v1/chat/completions" \
-               -H 'Content-Type: application/json' -d "$payload")
+        resp=$(__post "$LEXAI_LLAMA_URL/v1/chat/completions" "$payload" 1)
         content=$(printf '%s' "$resp" | jq -r '.choices[0].message.content // empty')
     else
         local payload
         payload=$(jq -n --arg m "$LEXAI_MODEL" --arg s "$system" --arg u "$user" \
             '{model:$m, stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
-        resp=$(curl -s --max-time 180 "$LEXAI_URL/api/chat" -d "$payload")
+        resp=$(__post "$LEXAI_URL/api/chat" "$payload")
         content=$(printf '%s' "$resp" | jq -r '.message.content // empty')
     fi
     if [ -z "$content" ]; then
@@ -124,9 +151,13 @@ __hl() {
 }
 
 banner() {
-    # Image TI-LEX en net, seulement quand on lance le codex (si chafa est là)
+    # Logo TI-LEX au lancement du codex :
+    #   - chafa (vraie photo nette) si installé,
+    #   - sinon le wordmark ASCII net (toujours joli, aucune dépendance).
     if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
-        chafa --size="${COLUMNS:-60}x" "$HOME/.lexos/banner.png" 2>/dev/null
+        chafa --size="${COLUMNS:-56}x" "$HOME/.lexos/banner.png" 2>/dev/null
+    elif [ -f "$HOME/.lexos/banner.txt" ]; then
+        cat "$HOME/.lexos/banner.txt"
     fi
     if [ "$LEXAI_BACKEND" = "llama" ]; then
         echo "${B}❯_ LexOS${R} ${D}· llama.cpp : ${LEXAI_GGUF:+$(basename "$LEXAI_GGUF")}${R}"
