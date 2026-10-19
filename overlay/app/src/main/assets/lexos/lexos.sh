@@ -51,16 +51,9 @@ __lexos_ps1() {
 }
 PROMPT_COMMAND=__lexos_ps1
 
-# ---- Bannière d'accueil (une fois par session, en interactif) ----
+# ---- Accueil (une fois par session, en interactif) — texte propre, sans image ----
 if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 1 ]; then
     export LEXOS_MOTD_SHOWN=1
-    # Image TI-LEX en haut : chafa (net, adapté à l'écran) sinon version texte
-    if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
-        chafa --size="${COLUMNS:-56}x" "$HOME/.lexos/banner.png" 2>/dev/null
-    elif [ -f "$HOME/.lexos/banner.txt" ]; then
-        cat "$HOME/.lexos/banner.txt"
-    fi
-    printf '\n'
     printf '\e[1;38;2;248;120;0m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'
     printf '\e[2mTape\e[0m \e[1;38;2;248;120;0maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
     printf '\e[2mEx :\e[0m aide comment installer python   \e[2m·  maj :\e[0m lexos-update\n\n'

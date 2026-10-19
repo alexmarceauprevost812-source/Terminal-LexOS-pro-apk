@@ -105,24 +105,29 @@ serve_gguf() {
     exec llama-server -m "$LEXAI_GGUF" --host 127.0.0.1 --port "${LEXAI_LLAMA_URL##*:}"
 }
 
-# Coloration syntaxique des blocs ``` dans les réponses (via bat si présent)
+# Couleurs des réponses du codex :
+#   l'IA qui parle   -> orange
+#   les commandes    -> jaune or
 __hl() {
-    command -v bat >/dev/null 2>&1 || { cat; return; }
-    awk -v bat="$(command -v bat)" '
-        function flush(){ if(cmd!=""){ close(cmd); cmd="" } }
-        /^```/{
-            if(incode){ flush(); incode=0 }
-            else{ incode=1; lang=substr($0,4); gsub(/[^a-zA-Z0-9_+-]/,"",lang);
-                  if(lang=="")lang="bash";
-                  cmd=bat" --color=always --style=plain --paging=never -l " lang }
-            next
-        }
-        { if(incode && cmd!=""){ print | cmd } else print }
-        END{ flush() }
-    '
+    local orange=$'\e[1;38;2;248;120;0m' gold=$'\e[1;38;2;255;215;0m' z=$'\e[0m'
+    local incode=0 line
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            '```'*) incode=$((1 - incode)); continue ;;
+        esac
+        if [ "$incode" -eq 1 ]; then
+            printf '%s%s%s\n' "$gold" "$line" "$z"
+        else
+            printf '%s%s%s\n' "$orange" "$line" "$z"
+        fi
+    done
 }
 
 banner() {
+    # Image TI-LEX en net, seulement quand on lance le codex (si chafa est là)
+    if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
+        chafa --size="${COLUMNS:-60}x" "$HOME/.lexos/banner.png" 2>/dev/null
+    fi
     if [ "$LEXAI_BACKEND" = "llama" ]; then
         echo "${B}❯_ LexOS${R} ${D}· llama.cpp : ${LEXAI_GGUF:+$(basename "$LEXAI_GGUF")}${R}"
     else
