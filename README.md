@@ -65,8 +65,9 @@ que les deux apps lisent le même fichier — aucun téléchargement en double.
 
 Dans le terminal :
 ```
-lexos-update        # télécharge et installe la dernière version depuis GitHub
+lexos maj           # télécharge et installe la dernière version (depuis la branche main)
 ```
+(`lexos-update` fait la même chose ; les mises à jour publiques sortent de la branche `main`.)
 Les mises à jour s'installent **par-dessus** (l'APK est signé avec une clé
 stable, voir `keystore/`). La commande apparaît aussi dans le message d'accueil.
 
