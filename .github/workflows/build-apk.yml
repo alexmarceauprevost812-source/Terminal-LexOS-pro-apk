@@ -25,9 +25,10 @@ jobs:
         id: cfg
         run: |
           set -a; source lexos/build-config.env; set +a
-          echo "TERMUX_REPO=$TERMUX_REPO" >> "$GITHUB_OUTPUT"
-          echo "TERMUX_REF=$TERMUX_REF"   >> "$GITHUB_OUTPUT"
-          echo "Moteur : $TERMUX_REPO @ $TERMUX_REF"
+          echo "TERMUX_REPO=$TERMUX_REPO"       >> "$GITHUB_OUTPUT"
+          echo "TERMUX_REF=$TERMUX_REF"         >> "$GITHUB_OUTPUT"
+          echo "LEXOS_APP_NAME=$LEXOS_APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "Moteur : $TERMUX_REPO @ $TERMUX_REF — app : $LEXOS_APP_NAME"
 
       - name: Récupérer le moteur Termux (intact, version figée)
         run: |
@@ -35,6 +36,8 @@ jobs:
           git -C termux-app checkout "${{ steps.cfg.outputs.TERMUX_REF }}"
 
       - name: Poser l'interface LexOS par-dessus
+        env:
+          LEXOS_APP_NAME: ${{ steps.cfg.outputs.LEXOS_APP_NAME }}
         run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
 
       - name: JDK 21
