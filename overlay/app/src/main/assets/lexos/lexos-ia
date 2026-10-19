@@ -16,7 +16,42 @@ PORT="8080"
 GGUF_DEFAULT="$MODELS_DIR/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 GGUF_URL="https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
 [ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
-GGUF="${1:-${LEXAI_GGUF:-$GGUF_DEFAULT}}"
+
+# S'assurer que Termux a accès au stockage partagé (pour lire les modèles de CodexLocal).
+ensure_storage() {
+    [ -d "$HOME/storage/shared" ] && return 0
+    command -v termux-setup-storage >/dev/null 2>&1 && termux-setup-storage >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5; do [ -d "$HOME/storage/shared" ] && break; sleep 1; done
+}
+
+# Chercher un modèle .gguf déjà présent dans le dossier partagé de CodexLocal
+# (on prend le plus petit : il démarre plus vite sur un téléphone).
+pick_shared() {
+    local d f best="" bsz=0 sz
+    for d in "$HOME/storage/shared/CodexLocal/models" "/sdcard/CodexLocal/models" "/storage/emulated/0/CodexLocal/models"; do
+        [ -d "$d" ] || continue
+        for f in "$d"/*.gguf; do
+            [ -f "$f" ] || continue
+            sz=$(stat -c %s "$f" 2>/dev/null || echo 0)
+            if [ -z "$best" ] || [ "$sz" -lt "$bsz" ]; then best="$f"; bsz="$sz"; fi
+        done
+        [ -n "$best" ] && break
+    done
+    printf '%s' "$best"
+}
+
+# Priorité : argument > modèle configuré > modèle PARTAGÉ (CodexLocal) > téléchargement
+GGUF="${1:-${LEXAI_GGUF:-}}"
+if [ -z "$GGUF" ]; then
+    ensure_storage
+    _shared="$(pick_shared)"
+    if [ -n "$_shared" ]; then
+        GGUF="$_shared"
+        echo "${G}Modèle partagé trouvé${R} (CodexLocal) : ${D}$(basename "$_shared")${R} — aucun téléchargement."
+    else
+        GGUF="$GGUF_DEFAULT"
+    fi
+fi
 
 up() { curl -s --max-time 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
 
