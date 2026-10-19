@@ -45,11 +45,11 @@ SYSTEM_EXPLAIN="Tu es l'assistant LexOS Pro. On te donne une commande.
 Explique en français du Québec, simplement, ce qu'elle fait, option par option si utile.
 Signale tout danger. Sois concis."
 
-SYSTEM_CHAT="Tu es ti-lex, un assistant IA amical en français du Québec.
+SYSTEM_CHAT="Tu es LexOS, un assistant IA amical en français du Québec.
 Discute de façon naturelle et utile, réponds à tout (pas seulement des commandes).
 Sois clair et concis."
 
-SYSTEM_AGENT="Tu es ti-lex AGENT, dans un terminal Termux (Linux sur Android).
+SYSTEM_AGENT="Tu es LexOS AGENT, dans un terminal Termux (Linux sur Android).
 Pour accomplir la tâche, donne UNE SEULE commande à la fois, dans un bloc \`\`\`bash.
 Je l'exécute et je te renvoie le résultat ; tu continues avec la commande suivante.
 Quand la tâche est complètement finie, écris le mot FINI (sans commande).
@@ -238,18 +238,12 @@ __say() {
     if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/avatar.png" ]; then
         chafa --size=6x3 "$HOME/.lexos/avatar.png" 2>/dev/null
     fi
-    printf '%s🤖 ti-lex ❯%s\n' "$B" "$R"
+    printf '%s🤖 LexOS ❯%s\n' "$B" "$R"
 }
 
 banner() {
-    # Logo TI-LEX au lancement du codex :
-    #   - chafa (vraie photo nette) si installé,
-    #   - sinon le wordmark ASCII net (toujours joli, aucune dépendance).
-    if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
-        chafa --size="${COLUMNS:-56}x" "$HOME/.lexos/banner.png" 2>/dev/null
-    elif [ -f "$HOME/.lexos/banner.txt" ]; then
-        cat "$HOME/.lexos/banner.txt"
-    fi
+    # Wordmark LexOS (net, aucune dépendance) au lancement du codex
+    [ -f "$HOME/.lexos/banner.txt" ] && cat "$HOME/.lexos/banner.txt"
     if [ "$LEXAI_BACKEND" = "llama" ]; then
         echo "${B}❯_ LexOS${R} ${D}· llama.cpp : ${LEXAI_GGUF:+$(basename "$LEXAI_GGUF")}${R}"
     else
