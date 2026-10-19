@@ -32,7 +32,7 @@ public final class LexosSetup {
     private static final String LOG_TAG = "LexosSetup";
 
     /** À incrémenter quand aide/lexos.sh/couleurs changent, pour forcer le redéploiement. */
-    private static final int LEXOS_SETUP_VERSION = 17;
+    private static final int LEXOS_SETUP_VERSION = 18;
 
     private static final String HOME = TermuxConstants.TERMUX_HOME_DIR_PATH;
 

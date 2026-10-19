@@ -260,7 +260,7 @@ case "${1:-}" in
         MODE="codex"
         echo "${D}Modes :${R} ${B}/codex${R} commande  ·  ${B}/chat${R} discuter  ·  ${B}/auto${R} exécute tout seul  ·  ${B}/model${R}  ·  ${B}/q${R}"
         while :; do
-            printf "${BLEU}toi ❯ ${R}"; read -r q || break
+            printf "${B}toi ❯ ${R}"; read -r q || break
             case "$q" in
                 q|quit|exit|/q|/quit|/exit) break ;;
                 "") continue ;;
