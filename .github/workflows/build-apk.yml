@@ -1,0 +1,87 @@
+name: Build LexOS Pro APK
+
+# Compile l'APK automatiquement :
+#  - à chaque push sur claude / supabase / main
+#  - ou manuellement (onglet Actions -> Run workflow)
+on:
+  push:
+    branches: [claude, supabase, main]
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # pour publier l'APK dans une Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer l'interface LexOS (ce dépôt)
+        uses: actions/checkout@v4
+        with:
+          path: lexos
+
+      - name: Lire la config de build
+        id: cfg
+        run: |
+          set -a; source lexos/build-config.env; set +a
+          echo "TERMUX_REPO=$TERMUX_REPO" >> "$GITHUB_OUTPUT"
+          echo "TERMUX_REF=$TERMUX_REF"   >> "$GITHUB_OUTPUT"
+          echo "Moteur : $TERMUX_REPO @ $TERMUX_REF"
+
+      - name: Récupérer le moteur Termux (intact, version figée)
+        run: |
+          git clone --no-single-branch "${{ steps.cfg.outputs.TERMUX_REPO }}" termux-app
+          git -C termux-app checkout "${{ steps.cfg.outputs.TERMUX_REF }}"
+
+      - name: Poser l'interface LexOS par-dessus
+        run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Installer plateformes / NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" \
+                     "ndk;29.0.14206865" "cmake;3.22.1" >/dev/null
+
+      - name: Compiler l'APK (debug)
+        working-directory: termux-app
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Repérer l'APK produit
+        id: apk
+        run: |
+          APK=$(find termux-app/app/build/outputs/apk/debug -name '*.apk' | head -n1)
+          echo "Trouvé : $APK"
+          cp "$APK" "LexOS-Pro-debug.apk"
+          echo "path=LexOS-Pro-debug.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Publier l'APK en artifact (téléchargeable depuis cette exécution)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LexOS-Pro-APK
+          path: LexOS-Pro-debug.apk
+          if-no-files-found: error
+
+      - name: Publier aussi dans une Release « latest » (lien de téléchargement stable)
+        if: github.ref == 'refs/heads/claude' || github.ref == 'refs/heads/supabase' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: LexOS Pro — dernière compilation
+          body: |
+            APK de LexOS Pro (debug) compilé automatiquement.
+            Moteur Termux figé : ${{ steps.cfg.outputs.TERMUX_REF }}
+            Build #${{ github.run_number }} — commit ${{ github.sha }}
+          files: LexOS-Pro-debug.apk
+          make_latest: true

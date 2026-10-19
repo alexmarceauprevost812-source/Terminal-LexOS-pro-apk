@@ -1,0 +1,14 @@
+# Config de l'assistant IA LexOS (~/.lexos/config)
+#
+# Moteur : "ollama" (par défaut) ou "llama" (fichier .gguf partagé)
+LEXAI_BACKEND="ollama"
+
+# --- Si LEXAI_BACKEND="ollama" ---
+LEXAI_MODEL="llama3.2"
+LEXAI_URL="http://127.0.0.1:11434"
+
+# --- Si LEXAI_BACKEND="llama" (réutilise le MÊME .gguf que CodexLocal) ---
+# Place ton modèle dans le stockage partagé pour qu'aucun téléchargement
+# ne soit fait deux fois (fais d'abord : termux-setup-storage) :
+# LEXAI_GGUF="$HOME/storage/shared/Models/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+LEXAI_LLAMA_URL="http://127.0.0.1:8080"

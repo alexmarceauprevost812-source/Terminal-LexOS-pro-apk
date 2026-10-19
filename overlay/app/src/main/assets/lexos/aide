@@ -1,0 +1,159 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  aide — assistant de commandes LexOS Pro
+#  Interroge une IA locale pour te guider dans les commandes.
+#
+#  Deux moteurs possibles (sans retélécharger tes modèles) :
+#    - ollama      : serveur Ollama (modèles partagés par tous tes outils)
+#    - llama       : serveur llama.cpp sur un fichier .gguf  (le MÊME que
+#                    CodexLocal, placé dans le stockage partagé)
+#
+#  Usage :
+#     aide comment extraire un fichier zip
+#     aide -e "tar -xzf x.tar.gz"      (explique une commande)
+#     aide                              (mode conversation)
+#     aide --serve-gguf                 (lance llama.cpp sur ton .gguf)
+#     aide --install-ia                 (aide à l'installation)
+#
+#  Config : ~/.lexos/config
+# =====================================================================
+set -u
+
+B=$'\e[1;38;5;208m'; C=$'\e[1;36m'; G=$'\e[1;32m'; Y=$'\e[1;33m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'
+
+# --- Config par défaut ---
+LEXAI_BACKEND="${LEXAI_BACKEND:-ollama}"
+LEXAI_URL="${LEXAI_URL:-http://127.0.0.1:11434}"        # Ollama
+LEXAI_MODEL="${LEXAI_MODEL:-llama3.2}"                  # modèle Ollama
+LEXAI_LLAMA_URL="${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}"  # llama.cpp
+LEXAI_GGUF="${LEXAI_GGUF:-}"                            # chemin du .gguf partagé
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+
+SYSTEM_SUGGEST="Tu es l'assistant LexOS Pro, intégré à un terminal Termux (Linux sur Android).
+Quand on te décrit une tâche, réponds en français du Québec, de façon concise :
+1) la commande EXACTE à taper, seule sur sa première ligne ;
+2) ensuite une courte explication (1-3 phrases).
+Préfère les commandes compatibles Termux (pkg au lieu de apt-get, pas de sudo).
+Si une commande est risquée (efface des fichiers, etc.), avertis en une ligne."
+
+SYSTEM_EXPLAIN="Tu es l'assistant LexOS Pro. On te donne une commande.
+Explique en français du Québec, simplement, ce qu'elle fait, option par option si utile.
+Signale tout danger. Sois concis."
+
+need_dep() {
+    local missing=""
+    command -v curl >/dev/null 2>&1 || missing="$missing curl"
+    command -v jq   >/dev/null 2>&1 || missing="$missing jq"
+    if [ -n "$missing" ]; then
+        echo "${Y}Il manque :${R}$missing"
+        printf "Les installer maintenant avec pkg ? [O/n] "
+        read -r rep
+        case "$rep" in ""|o|O|y|Y) pkg install -y $missing ;;
+            *) echo "${D}Annulé. Fais : pkg install$missing${R}"; exit 1 ;; esac
+    fi
+}
+
+check_backend() {
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        if ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/health" >/dev/null 2>&1 \
+          && ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/v1/models" >/dev/null 2>&1; then
+            echo "${RED}Serveur llama.cpp injoignable sur $LEXAI_LLAMA_URL${R}"
+            echo "${D}→ Lance-le :  aide --serve-gguf   (utilise LEXAI_GGUF)${R}"
+            exit 1
+        fi
+    else
+        if ! curl -s --max-time 3 "$LEXAI_URL/api/tags" >/dev/null 2>&1; then
+            echo "${RED}Ollama injoignable sur $LEXAI_URL${R}"
+            echo "${D}→ Démarre-le :  ollama serve     (dans un autre onglet)${R}"
+            echo "${D}→ Pas installé ? Fais :  aide --install-ia${R}"
+            exit 1
+        fi
+    fi
+}
+
+ask() {
+    local system="$1"; local user="$2" resp content err
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        local payload
+        payload=$(jq -n --arg s "$system" --arg u "$user" \
+            '{stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
+        resp=$(curl -s --max-time 180 "$LEXAI_LLAMA_URL/v1/chat/completions" \
+               -H 'Content-Type: application/json' -d "$payload")
+        content=$(printf '%s' "$resp" | jq -r '.choices[0].message.content // empty')
+    else
+        local payload
+        payload=$(jq -n --arg m "$LEXAI_MODEL" --arg s "$system" --arg u "$user" \
+            '{model:$m, stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
+        resp=$(curl -s --max-time 180 "$LEXAI_URL/api/chat" -d "$payload")
+        content=$(printf '%s' "$resp" | jq -r '.message.content // empty')
+    fi
+    if [ -z "$content" ]; then
+        err=$(printf '%s' "$resp" | jq -r '.error // .error.message // empty' 2>/dev/null)
+        [ -n "$err" ] && echo "${RED}IA : $err${R}" || echo "${RED}Réponse vide de l'IA.${R}"
+        [ "$LEXAI_BACKEND" = "ollama" ] && echo "${D}→ Modèle absent ? Fais :  ollama pull $LEXAI_MODEL${R}"
+        return 1
+    fi
+    printf '%s\n' "$content"
+}
+
+serve_gguf() {
+    [ -z "$LEXAI_GGUF" ] && { echo "${RED}LEXAI_GGUF n'est pas défini.${R}"; echo "${D}Mets dans ~/.lexos/config :  LEXAI_GGUF=\"\$HOME/storage/shared/Models/ton-modele.gguf\"${R}"; exit 1; }
+    [ -f "$LEXAI_GGUF" ] || { echo "${RED}Fichier introuvable : $LEXAI_GGUF${R}"; exit 1; }
+    command -v llama-server >/dev/null 2>&1 || { echo "${Y}llama.cpp absent.${R} Installe : ${B}pkg install llama-cpp${R}"; exit 1; }
+    echo "${B}LexOS ❯${R} Démarre llama.cpp sur $(basename "$LEXAI_GGUF")  (Ctrl-C pour arrêter)"
+    echo "${D}Laisse cet onglet ouvert, puis dans un autre : LEXAI_BACKEND=llama aide ta question${R}"
+    exec llama-server -m "$LEXAI_GGUF" --host 127.0.0.1 --port "${LEXAI_LLAMA_URL##*:}"
+}
+
+banner() {
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        echo "${B}❯_ LexOS${R} ${D}· llama.cpp : ${LEXAI_GGUF:+$(basename "$LEXAI_GGUF")}${R}"
+    else
+        echo "${B}❯_ LexOS${R} ${D}· Ollama : $LEXAI_MODEL${R}"
+    fi
+}
+
+case "${1:-}" in
+    -h|--help)
+        echo "${B}aide${R} — assistant de commandes LexOS Pro"
+        echo "  aide <ta question>        suggère la commande"
+        echo "  aide -e <commande>        explique une commande"
+        echo "  aide                      mode conversation"
+        echo "  aide --serve-gguf         lance llama.cpp sur ton .gguf partagé"
+        echo "  aide --install-ia         comment installer l'IA locale"
+        echo ""
+        echo "${D}Moteur actuel : $LEXAI_BACKEND (change avec LEXAI_BACKEND dans ~/.lexos/config)${R}"
+        exit 0 ;;
+    --install-ia)
+        echo "${B}Option A — Ollama (modèles partagés, recommandé) :${R}"
+        echo "  pkg install -y ollama"
+        echo "  ollama serve        ${D}# laisse tourner dans un onglet${R}"
+        echo "  ollama pull llama3.2"
+        echo ""
+        echo "${B}Option B — réutiliser le MÊME .gguf que CodexLocal (zéro double téléchargement) :${R}"
+        echo "  termux-setup-storage          ${D}# donne accès au stockage partagé${R}"
+        echo "  pkg install -y llama-cpp"
+        echo "  ${D}# place/trouve ton .gguf dans ~/storage/shared/Models/ (accessible aux 2 apps)${R}"
+        echo "  ${D}# puis dans ~/.lexos/config :${R}"
+        echo "     LEXAI_BACKEND=\"llama\""
+        echo "     LEXAI_GGUF=\"\$HOME/storage/shared/Models/ton-modele.gguf\""
+        echo "  aide --serve-gguf"
+        exit 0 ;;
+    --serve-gguf) serve_gguf ;;
+    -e|--explique)
+        shift; need_dep; check_backend; banner
+        [ $# -eq 0 ] && { echo "Donne une commande à expliquer."; exit 1; }
+        echo "${C}Explication :${R}"; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
+    "")
+        need_dep; check_backend; banner
+        echo "${D}Mode conversation. Décris ta tâche, ou 'q' pour quitter.${R}"
+        while :; do
+            printf "${G}toi ❯ ${R}"; read -r q || break
+            case "$q" in q|quit|exit) break;; "") continue;; esac
+            echo "${C}LexOS ❯${R}"; ask "$SYSTEM_SUGGEST" "$q"; echo
+        done
+        echo "${D}À la prochaine.${R}"; exit 0 ;;
+    *)
+        need_dep; check_backend; banner
+        ask "$SYSTEM_SUGGEST" "$*"; exit $? ;;
+esac

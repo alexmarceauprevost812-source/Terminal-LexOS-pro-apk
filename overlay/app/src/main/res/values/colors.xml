@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LexOS Pro — palette noir + orange (identité Marceau).
+  Remplace le colors.xml (vide) de Termux. Ne touche PAS au moteur :
+  définit seulement les couleurs de l'interface Android (barre, tiroir, touches).
+  Les couleurs DU terminal sont dans assets/lexos/colors.properties.
+-->
+<resources>
+    <!-- Oranges Marceau -->
+    <color name="lexos_orange">#FF8A1E</color>         <!-- accent principal -->
+    <color name="lexos_orange_bright">#FFB15C</color>  <!-- accent clair / actif -->
+    <color name="lexos_orange_deep">#C25E00</color>    <!-- orange profond -->
+
+    <!-- Noir Marceau -->
+    <color name="lexos_bg">#000000</color>            <!-- fond principal (noir pur) -->
+    <color name="lexos_surface">#0E0E0E</color>       <!-- surfaces / tiroir -->
+    <color name="lexos_surface_alt">#1C1C1C</color>   <!-- surface sélectionnée -->
+
+    <!-- Accent secondaire (clin d'œil au « Chat » cyan de Marceau) -->
+    <color name="lexos_cyan">#36C6E0</color>
+
+    <!-- Textes -->
+    <color name="lexos_fg">#F3EDE4</color>            <!-- texte clair -->
+    <color name="lexos_fg_dim">#B9B2A8</color>        <!-- texte secondaire -->
+</resources>

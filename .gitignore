@@ -1,0 +1,8 @@
+# Clone local du moteur Termux (ne pas committer : récupéré au build)
+/termux-app/
+# Sorties de build
+*.apk
+*.aab
+build/
+.gradle/
+local.properties
