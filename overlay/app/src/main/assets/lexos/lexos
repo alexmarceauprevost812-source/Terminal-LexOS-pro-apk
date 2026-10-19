@@ -11,14 +11,17 @@ B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'
 case "${1:-}" in
     maj|màj|mise|miss|"mise-à-jour"|mise-a-jour|update|up|mettre)
         shift; exec lexos-update "$@" ;;
-    parler|parle|chat|ia|lex|aide)
+    ia|installer|install|installe)
+        shift; exec lexos-ia "$@" ;;
+    parler|parle|chat|lex|aide)
         shift; exec aide "$@" ;;
     couleurs|couleur|color)
         exec lexos-couleurs ;;
     ""|-h|--help|aide-moi)
         echo "${B}lexos${R} — raccourcis LexOS Pro"
-        echo "  ${B}lexos maj${R}        mettre à jour l'application"
+        echo "  ${B}lexos ia${R}         installer / démarrer l'IA locale"
         echo "  ${B}lexos parler${R}     parler à l'IA (le codex)"
+        echo "  ${B}lexos maj${R}        mettre à jour l'application"
         echo "  ${B}lexos couleurs${R}   activer toutes les couleurs"
         echo "${D}(tu peux aussi écrire : lexos mise à jour)${R}" ;;
     *)

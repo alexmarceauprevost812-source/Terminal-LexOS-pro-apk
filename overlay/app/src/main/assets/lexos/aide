@@ -24,7 +24,7 @@ B=$'\e[1;38;2;248;120;0m'; C=$'\e[1;36m'; G=$'\e[1;32m'; Y=$'\e[1;33m'; D=$'\e[2
 # --- Config par défaut ---
 LEXAI_BACKEND="${LEXAI_BACKEND:-ollama}"
 LEXAI_URL="${LEXAI_URL:-http://127.0.0.1:11434}"        # Ollama
-LEXAI_MODEL="${LEXAI_MODEL:-llama3.2}"                  # modèle Ollama
+LEXAI_MODEL="${LEXAI_MODEL:-llama3.2:1b}"              # modèle Ollama (léger pour téléphone)
 LEXAI_LLAMA_URL="${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}"  # llama.cpp
 LEXAI_GGUF="${LEXAI_GGUF:-}"                            # chemin du .gguf partagé
 [ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
@@ -63,10 +63,12 @@ check_backend() {
         fi
     else
         if ! curl -s --max-time 3 "$LEXAI_URL/api/tags" >/dev/null 2>&1; then
-            echo "${RED}Ollama injoignable sur $LEXAI_URL${R}"
-            echo "${D}→ Démarre-le :  ollama serve     (dans un autre onglet)${R}"
-            echo "${D}→ Pas installé ? Fais :  aide --install-ia${R}"
-            exit 1
+            # Auto : installe Ollama, démarre le serveur et télécharge le modèle
+            if command -v lexos-ia >/dev/null 2>&1; then
+                lexos-ia "$LEXAI_MODEL" || exit 1
+            else
+                echo "${RED}Ollama injoignable.${R} ${D}Fais : aide --install-ia${R}"; exit 1
+            fi
         fi
     fi
 }
@@ -150,6 +152,14 @@ __hl() {
     done
 }
 
+# Étiquette de l'IA (avatar/logo à gauche) avant chaque réponse
+__say() {
+    if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/avatar.png" ]; then
+        chafa --size=6x3 "$HOME/.lexos/avatar.png" 2>/dev/null
+    fi
+    printf '%s🤖 ti-lex ❯%s\n' "$B" "$R"
+}
+
 banner() {
     # Logo TI-LEX au lancement du codex :
     #   - chafa (vraie photo nette) si installé,
@@ -178,12 +188,18 @@ case "${1:-}" in
         echo "${D}Moteur actuel : $LEXAI_BACKEND (change avec LEXAI_BACKEND dans ~/.lexos/config)${R}"
         exit 0 ;;
     --install-ia)
-        echo "${B}Option A — Ollama (modèles partagés, recommandé) :${R}"
-        echo "  pkg install -y ollama"
-        echo "  ollama serve        ${D}# laisse tourner dans un onglet${R}"
-        echo "  ollama pull llama3.2"
+        echo "${B}Le plus simple — tout automatique :${R}"
+        echo "  lexos-ia            ${D}# installe Ollama, démarre le serveur, télécharge le modèle${R}"
+        echo "  ${D}(c'est aussi fait tout seul quand tu lances 'lex' pour la 1re fois)${R}"
         echo ""
-        echo "${B}Option B — réutiliser le MÊME .gguf que CodexLocal (zéro double téléchargement) :${R}"
+        echo "${B}Choisir un modèle (léger -> lourd, selon ton téléphone) :${R}"
+        echo "  lexos-ia llama3.2:1b        ${D}# léger, polyvalent (défaut)${R}"
+        echo "  lexos-ia qwen2.5:1.5b       ${D}# léger, bon en code${R}"
+        echo "  lexos-ia deepseek-r1:1.5b   ${D}# léger, raisonnement (comme CodexLocal)${R}"
+        echo "  lexos-ia mistral            ${D}# 7B, plus lourd (téléphone costaud)${R}"
+        echo "  ${D}# pour garder un modèle : LEXAI_MODEL=\"...\" dans ~/.lexos/config${R}"
+        echo ""
+        echo "${B}Option avancée — réutiliser le MÊME .gguf que CodexLocal :${R}"
         echo "  termux-setup-storage          ${D}# donne accès au stockage partagé${R}"
         echo "  pkg install -y llama-cpp"
         echo "  ${D}# place/trouve ton .gguf dans ~/storage/shared/Models/ (accessible aux 2 apps)${R}"
@@ -196,17 +212,17 @@ case "${1:-}" in
     -e|--explique)
         shift; need_dep; check_backend; banner
         [ $# -eq 0 ] && { echo "Donne une commande à expliquer."; exit 1; }
-        echo "${C}Explication :${R}"; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
+        __say; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
     "")
         need_dep; check_backend; banner
         echo "${D}Mode conversation. Décris ta tâche, ou 'q' pour quitter.${R}"
         while :; do
             printf "${G}toi ❯ ${R}"; read -r q || break
             case "$q" in q|quit|exit) break;; "") continue;; esac
-            echo "${B}ti-lex ❯${R}"; ask "$SYSTEM_SUGGEST" "$q"; echo
+            __say; ask "$SYSTEM_SUGGEST" "$q"; echo
         done
         echo "${D}À la prochaine.${R}"; exit 0 ;;
     *)
         need_dep; check_backend; banner
-        ask "$SYSTEM_SUGGEST" "$*"; exit $? ;;
+        __say; ask "$SYSTEM_SUGGEST" "$*"; exit $? ;;
 esac

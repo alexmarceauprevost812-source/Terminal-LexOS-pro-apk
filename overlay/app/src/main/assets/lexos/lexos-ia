@@ -1,0 +1,40 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-ia — installe et démarre l'IA locale automatiquement
+#     - installe Ollama si absent
+#     - démarre le serveur en arrière-plan
+#     - télécharge le modèle (une seule fois)
+#  Usage : lexos-ia [modèle]     (défaut : llama3.2:1b, léger pour téléphone)
+# =====================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'
+URL="${LEXAI_URL:-http://127.0.0.1:11434}"
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+MODEL="${1:-${LEXAI_MODEL:-llama3.2:1b}}"
+
+up() { curl -s --max-time 2 "$URL/api/tags" >/dev/null 2>&1; }
+
+echo "${B}❯_ LexOS${R} Préparation de l'IA locale…"
+
+# 1) Ollama installé ?
+if ! command -v ollama >/dev/null 2>&1; then
+    echo "${D}Installation d'Ollama…${R}"
+    pkg install -y ollama || { echo "${RED}Échec de l'installation d'Ollama.${R}"; exit 1; }
+fi
+
+# 2) Serveur démarré ?
+if ! up; then
+    echo "${D}Démarrage du serveur IA en arrière-plan…${R}"
+    mkdir -p "$HOME/.lexos"
+    nohup ollama serve >"$HOME/.lexos/ollama.log" 2>&1 &
+    for _ in $(seq 1 30); do up && break; sleep 1; done
+    up || { echo "${RED}Le serveur IA n'a pas démarré. Voir ~/.lexos/ollama.log${R}"; exit 1; }
+fi
+
+# 3) Modèle présent ?
+if ! ollama list 2>/dev/null | grep -qi "${MODEL%%:*}"; then
+    echo "${D}Téléchargement du modèle ${MODEL} (une seule fois, ça peut être long)…${R}"
+    ollama pull "$MODEL" || { echo "${RED}Échec du téléchargement de $MODEL${R}"; exit 1; }
+fi
+
+echo "${G}IA prête !${R} Parle-lui : ${B}lex${R}"
