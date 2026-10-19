@@ -23,13 +23,16 @@ B=$'\e[1;38;2;248;120;0m'; C=$'\e[1;36m'; G=$'\e[1;32m'; Y=$'\e[1;33m'; D=$'\e[2
 RED=$'\e[1;38;2;224;0;0m'          # rouge « stop » (franc, pas rose)
 BLEU=$'\e[1;38;2;44;200;255m'      # bleu néon pour « toi »
 
-# --- Config par défaut ---
-LEXAI_BACKEND="${LEXAI_BACKEND:-ollama}"
-LEXAI_URL="${LEXAI_URL:-http://127.0.0.1:11434}"        # Ollama
-LEXAI_MODEL="${LEXAI_MODEL:-llama3.2:1b}"              # modèle Ollama (léger pour téléphone)
-LEXAI_LLAMA_URL="${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}"  # llama.cpp
-LEXAI_GGUF="${LEXAI_GGUF:-}"                            # chemin du .gguf partagé
+# --- Config : une variable passée à la main gagne sur le fichier config,
+#     qui gagne sur les valeurs par défaut. ---
+_e_backend="${LEXAI_BACKEND:-}"; _e_url="${LEXAI_URL:-}"; _e_model="${LEXAI_MODEL:-}"
+_e_lurl="${LEXAI_LLAMA_URL:-}"; _e_gguf="${LEXAI_GGUF:-}"
 [ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+LEXAI_BACKEND="${_e_backend:-${LEXAI_BACKEND:-ollama}}"
+LEXAI_URL="${_e_url:-${LEXAI_URL:-http://127.0.0.1:11434}}"
+LEXAI_MODEL="${_e_model:-${LEXAI_MODEL:-llama3.2:1b}}"
+LEXAI_LLAMA_URL="${_e_lurl:-${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}}"
+LEXAI_GGUF="${_e_gguf:-${LEXAI_GGUF:-}}"
 
 SYSTEM_SUGGEST="Tu es l'assistant LexOS Pro, intégré à un terminal Termux (Linux sur Android).
 Quand on te décrit une tâche, réponds en français du Québec, de façon concise :
