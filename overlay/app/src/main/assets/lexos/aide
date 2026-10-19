@@ -49,6 +49,12 @@ SYSTEM_CHAT="Tu es ti-lex, un assistant IA amical en français du Québec.
 Discute de façon naturelle et utile, réponds à tout (pas seulement des commandes).
 Sois clair et concis."
 
+SYSTEM_AGENT="Tu es ti-lex AGENT, dans un terminal Termux (Linux sur Android).
+Pour accomplir la tâche, donne UNE SEULE commande à la fois, dans un bloc \`\`\`bash.
+Je l'exécute et je te renvoie le résultat ; tu continues avec la commande suivante.
+Quand la tâche est complètement finie, écris le mot FINI (sans commande).
+Utilise les commandes Termux (pkg, pas apt-get, jamais sudo). Sois prudent."
+
 need_dep() {
     local missing=""
     command -v curl >/dev/null 2>&1 || missing="$missing curl"
@@ -135,6 +141,39 @@ ask() {
     fi
     _LAST="$content"            # réponse brute (pour le mode /auto)
     printf '%s\n' "$content" | __hl
+}
+
+# Vrai : la commande est-elle sensible (à confirmer) ?
+__is_dangerous() {
+    printf '%s' "$1" | grep -qiE 'rm +-[rf]|rm +-rf| dd |mkfs|> *\/dev\/|chmod +-R +777|:\(\)\{|\bformat\b|wipe|pkg +uninstall|rm +-rf +\/'
+}
+
+# Mode AGENT : l'IA exécute une commande, voit le résultat, enchaîne (max 6 étapes)
+__agent() {
+    local task="$1" cmd out ok conv step
+    conv="Tâche à accomplir : $task"
+    for step in 1 2 3 4 5 6; do
+        __say; ask "$SYSTEM_AGENT" "$conv"; echo
+        case "$_LAST" in *FINI*|*Fini*|*fini*) echo "${G}✓ Tâche terminée.${R}"; return ;; esac
+        cmd="$(__extract_cmd "$_LAST")"
+        cmd="$(printf '%s' "$cmd" | sed -E 's/(^| )sudo +/\1/g')"
+        [ -z "$cmd" ] && { echo "${D}Pas de commande — j'arrête.${R}"; return ; }
+        if __is_dangerous "$cmd"; then
+            printf "${Y}⚠ Commande sensible :${R} %s\n${D}[Entrée=oui, n=non]${R} " "$cmd"
+            read -r ok </dev/tty
+            case "$ok" in ""|o|O|y|Y) ;; *) echo "${D}Agent arrêté.${R}"; return ;; esac
+        fi
+        echo "${D}─── exécution (étape $step) ───${R}"
+        out="$(bash -c "$cmd" 2>&1)"
+        printf '%s\n' "$out"
+        echo "${D}──────────────────────────────${R}"
+        conv="$conv
+[commande exécutée] $cmd
+[résultat]
+$out
+Continue avec la prochaine commande, ou écris FINI si c'est terminé."
+    done
+    echo "${D}(limite d'étapes atteinte)${R}"
 }
 
 # Extrait la commande de la réponse (bloc ``` en priorité, sinon 1re ligne non vide)
@@ -258,19 +297,23 @@ case "${1:-}" in
     "")
         need_dep; check_backend; banner
         MODE="codex"
-        echo "${D}Modes :${R} ${B}/codex${R} commande  ·  ${B}/chat${R} discuter  ·  ${B}/auto${R} exécute tout seul  ·  ${B}/model${R}  ·  ${B}/q${R}"
+        echo "${D}Modes :${R} ${B}/codex${R}  ${B}/chat${R}  ${B}/auto${R}  ${B}/agent${R}  ·  ${B}/model${R}  ·  ${B}/q${R}"
         while :; do
             printf "${B}toi ❯ ${R}"; read -r q || break
             case "$q" in
                 q|quit|exit|/q|/quit|/exit) break ;;
                 "") continue ;;
-                /help|/aide) echo "${D}/codex  /chat  /auto  ·  /model [nom]  ·  /q${R}"; continue ;;
+                /help|/aide) echo "${D}/codex propose · /chat discute · /auto exécute 1 cmd · /agent fait la tâche (multi-étapes) · /model [nom] · /q${R}"; continue ;;
                 /model*) __cmd_model "${q#/model}"; continue ;;
                 /chat) MODE="chat"; echo "${G}Mode CHAT${R} ${D}— discute librement.${R}"; continue ;;
                 /codex|/suggest) MODE="codex"; echo "${G}Mode CODEX${R} ${D}— l'IA propose la commande.${R}"; continue ;;
                 /auto) MODE="auto"; echo "${Y}Mode AUTO${R} ${D}— exécute les commandes sûres toutes seules (confirme si sensible, pas de sudo).${R}"; continue ;;
-                /*) echo "${D}Commande inconnue. /codex  /chat  /auto  /model  /q${R}"; continue ;;
+                /agent) MODE="agent"; echo "${Y}Mode AGENT${R} ${D}— l'IA exécute, voit le résultat et enchaîne jusqu'à finir la tâche.${R}"; continue ;;
+                /*) echo "${D}Commande inconnue. /codex /chat /auto /agent /model /q${R}"; continue ;;
             esac
+            if [ "$MODE" = "agent" ]; then
+                __agent "$q"; echo; continue
+            fi
             __say
             if [ "$MODE" = "chat" ]; then
                 ask "$SYSTEM_CHAT" "$q"; echo
