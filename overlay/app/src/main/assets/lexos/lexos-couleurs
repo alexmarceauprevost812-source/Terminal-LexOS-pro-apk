@@ -9,7 +9,7 @@ set -u
 B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; D=$'\e[2m'; R=$'\e[0m'
 
 echo "${B}❯_ LexOS${R} Installation des couleurs…"
-pkg install -y bat eza || true
+pkg install -y bat eza chafa || true
 if pkg install -y blesh 2>/dev/null; then
     echo "${G}blesh installé${R} (coloration en direct quand tu tapes)."
 else
