@@ -93,7 +93,7 @@ ask() {
         [ "$LEXAI_BACKEND" = "ollama" ] && echo "${D}→ Modèle absent ? Fais :  ollama pull $LEXAI_MODEL${R}"
         return 1
     fi
-    printf '%s\n' "$content"
+    printf '%s\n' "$content" | __hl
 }
 
 serve_gguf() {
@@ -103,6 +103,23 @@ serve_gguf() {
     echo "${B}LexOS ❯${R} Démarre llama.cpp sur $(basename "$LEXAI_GGUF")  (Ctrl-C pour arrêter)"
     echo "${D}Laisse cet onglet ouvert, puis dans un autre : LEXAI_BACKEND=llama aide ta question${R}"
     exec llama-server -m "$LEXAI_GGUF" --host 127.0.0.1 --port "${LEXAI_LLAMA_URL##*:}"
+}
+
+# Coloration syntaxique des blocs ``` dans les réponses (via bat si présent)
+__hl() {
+    command -v bat >/dev/null 2>&1 || { cat; return; }
+    awk -v bat="$(command -v bat)" '
+        function flush(){ if(cmd!=""){ close(cmd); cmd="" } }
+        /^```/{
+            if(incode){ flush(); incode=0 }
+            else{ incode=1; lang=substr($0,4); gsub(/[^a-zA-Z0-9_+-]/,"",lang);
+                  if(lang=="")lang="bash";
+                  cmd=bat" --color=always --style=plain --paging=never -l " lang }
+            next
+        }
+        { if(incode && cmd!=""){ print | cmd } else print }
+        END{ flush() }
+    '
 }
 
 banner() {
@@ -150,7 +167,7 @@ case "${1:-}" in
         while :; do
             printf "${G}toi ❯ ${R}"; read -r q || break
             case "$q" in q|quit|exit) break;; "") continue;; esac
-            echo "${C}LexOS ❯${R}"; ask "$SYSTEM_SUGGEST" "$q"; echo
+            echo "${B}ti-lex ❯${R}"; ask "$SYSTEM_SUGGEST" "$q"; echo
         done
         echo "${D}À la prochaine.${R}"; exit 0 ;;
     *)

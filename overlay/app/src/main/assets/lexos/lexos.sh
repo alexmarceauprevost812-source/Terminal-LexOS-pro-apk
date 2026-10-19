@@ -4,6 +4,11 @@
 export PATH="$HOME/bin:$PATH"
 alias lex=aide
 
+# Coloration syntaxique de la ligne de commande quand tu tapes (si ble.sh présent)
+if [[ $- == *i* ]] && [ -f "$PREFIX/share/blesh/ble.sh" ]; then
+    source "$PREFIX/share/blesh/ble.sh" --noattach
+fi
+
 # ---- Sortie en couleur ----
 export CLICOLOR=1
 export COLORTERM=truecolor
@@ -53,3 +58,6 @@ if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 1 ]; then
     printf '\e[2mTape\e[0m \e[1;38;2;248;120;0maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
     printf '\e[2mEx :\e[0m aide comment installer python   \e[2m·  maj :\e[0m lexos-update\n\n'
 fi
+
+# Active blesh à la fin (coloration en direct)
+[[ ${BLE_VERSION-} ]] && ble-attach
