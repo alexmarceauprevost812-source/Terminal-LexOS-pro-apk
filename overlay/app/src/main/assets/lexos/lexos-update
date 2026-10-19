@@ -6,7 +6,7 @@
 #   une clé stable.)
 # =====================================================================
 set -u
-B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'; G=$'\e[1;32m'
+B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'; G=$'\e[1;38;2;118;185;0m'
 
 REPO="alexmarceauprevost812-source/Terminal-LexOS-pro-apk"
 API="https://api.github.com/repos/$REPO/releases/latest"
