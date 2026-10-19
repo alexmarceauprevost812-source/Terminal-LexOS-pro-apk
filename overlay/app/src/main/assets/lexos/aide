@@ -19,7 +19,9 @@
 # =====================================================================
 set -u
 
-B=$'\e[1;38;2;248;120;0m'; C=$'\e[1;36m'; G=$'\e[1;32m'; Y=$'\e[1;33m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'
+B=$'\e[1;38;2;248;120;0m'; C=$'\e[1;36m'; G=$'\e[1;32m'; Y=$'\e[1;33m'; D=$'\e[2m'; R=$'\e[0m'
+RED=$'\e[1;38;2;224;0;0m'          # rouge « stop » (franc, pas rose)
+BLEU=$'\e[1;38;2;44;200;255m'      # bleu néon pour « toi »
 
 # --- Config par défaut ---
 LEXAI_BACKEND="${LEXAI_BACKEND:-ollama}"
@@ -217,7 +219,7 @@ case "${1:-}" in
         need_dep; check_backend; banner
         echo "${D}Mode conversation. Décris ta tâche, ou 'q' pour quitter.${R}"
         while :; do
-            printf "${G}toi ❯ ${R}"; read -r q || break
+            printf "${BLEU}toi ❯ ${R}"; read -r q || break
             case "$q" in q|quit|exit) break;; "") continue;; esac
             __say; ask "$SYSTEM_SUGGEST" "$q"; echo
         done
