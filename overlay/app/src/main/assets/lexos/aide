@@ -155,10 +155,10 @@ serve_gguf() {
 }
 
 # Couleurs des réponses du codex :
-#   l'IA qui parle   -> orange
+#   l'IA qui parle   -> bleu néon
 #   les commandes    -> jaune or
 __hl() {
-    local orange=$'\e[1;38;2;248;120;0m' gold=$'\e[1;38;2;255;215;0m' z=$'\e[0m'
+    local bleu=$'\e[1;38;2;44;200;255m' gold=$'\e[1;38;2;255;215;0m' z=$'\e[0m'
     local incode=0 line
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -167,7 +167,7 @@ __hl() {
         if [ "$incode" -eq 1 ]; then
             printf '%s%s%s\n' "$gold" "$line" "$z"
         else
-            printf '%s%s%s\n' "$orange" "$line" "$z"
+            printf '%s%s%s\n' "$bleu" "$line" "$z"
         fi
     done
 }
@@ -268,7 +268,7 @@ case "${1:-}" in
                 /model*) __cmd_model "${q#/model}"; continue ;;
                 /chat) MODE="chat"; echo "${G}Mode CHAT${R} ${D}— discute librement.${R}"; continue ;;
                 /codex|/suggest) MODE="codex"; echo "${G}Mode CODEX${R} ${D}— l'IA propose la commande.${R}"; continue ;;
-                /auto) MODE="auto"; echo "${Y}Mode AUTO${R} ${D}— l'IA propose ET exécute (tu confirmes avant).${R}"; continue ;;
+                /auto) MODE="auto"; echo "${Y}Mode AUTO${R} ${D}— exécute les commandes sûres toutes seules (confirme si sensible, pas de sudo).${R}"; continue ;;
                 /*) echo "${D}Commande inconnue. /codex  /chat  /auto  /model  /q${R}"; continue ;;
             esac
             __say
@@ -278,13 +278,20 @@ case "${1:-}" in
                 ask "$SYSTEM_SUGGEST" "$q"; echo
                 if [ "$MODE" = "auto" ]; then
                     CMD="$(__extract_cmd "$_LAST")"
+                    CMD="$(printf '%s' "$CMD" | sed -E 's/(^| )sudo +/\1/g')"   # Termux : pas de sudo
                     if [ -n "$CMD" ]; then
-                        printf "${Y}Exécuter :${R} %s\n${D}[Entrée = oui, n = non]${R} " "$CMD"
-                        read -r ok </dev/tty
-                        case "$ok" in
-                            ""|o|O|y|Y) echo "${D}─── exécution ───${R}"; bash -c "$CMD"; echo "${D}─────────────────${R}" ;;
-                            *) echo "${D}Annulé.${R}" ;;
-                        esac
+                        if printf '%s' "$CMD" | grep -qiE 'rm +-[rf]|rm +-rf| dd |mkfs|> *\/dev\/|chmod +-R +777|:\(\)\{|\bformat\b|wipe|pkg +uninstall|rm +-rf +\/'; then
+                            # Commande sensible -> on demande avant
+                            printf "${Y}⚠ Commande sensible :${R} %s\n${D}[Entrée = oui, n = non]${R} " "$CMD"
+                            read -r ok </dev/tty
+                            case "$ok" in
+                                ""|o|O|y|Y) echo "${D}─── exécution ───${R}"; bash -c "$CMD"; echo "${D}─────────────────${R}" ;;
+                                *) echo "${D}Annulé.${R}" ;;
+                            esac
+                        else
+                            # Commande sûre -> exécution automatique
+                            echo "${D}─── exécution auto ───${R}"; bash -c "$CMD"; echo "${D}──────────────────────${R}"
+                        fi
                     fi
                 fi
                 echo
