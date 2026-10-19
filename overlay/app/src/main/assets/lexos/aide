@@ -157,6 +157,28 @@ __hl() {
     done
 }
 
+# /model : liste ou change le modèle sans quitter la conversation
+__cmd_model() {
+    local m; m="$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        echo "${D}En mode llama.cpp, le modèle = le serveur en cours.${R}"
+        echo "${D}Pour en changer : relance le serveur avec un autre fichier .gguf.${R}"
+        return
+    fi
+    if [ -z "$m" ]; then
+        echo "${B}Modèles installés :${R}"
+        ollama list 2>/dev/null | awk 'NR>1{print "  • "$1}'
+        echo "${D}Changer : /model <nom>   (ex: /model qwen2.5:0.5b)${R}"
+        return
+    fi
+    if ! ollama list 2>/dev/null | grep -qi "${m%%:*}"; then
+        echo "${D}Téléchargement de $m…${R}"
+        ollama pull "$m" || { echo "${RED}Échec du téléchargement de $m${R}"; return; }
+    fi
+    LEXAI_MODEL="$m"
+    echo "${G}Modèle actif : $LEXAI_MODEL${R}"
+}
+
 # Étiquette de l'IA (avatar/logo à gauche) avant chaque réponse
 __say() {
     if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/avatar.png" ]; then
@@ -220,10 +242,16 @@ case "${1:-}" in
         __say; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
     "")
         need_dep; check_backend; banner
-        echo "${D}Mode conversation. Décris ta tâche, ou 'q' pour quitter.${R}"
+        echo "${D}Mode conversation. Écris ta tâche.  /model = changer de modèle  ·  /q = quitter${R}"
         while :; do
             printf "${BLEU}toi ❯ ${R}"; read -r q || break
-            case "$q" in q|quit|exit) break;; "") continue;; esac
+            case "$q" in
+                q|quit|exit|/q|/quit|/exit) break ;;
+                "") continue ;;
+                /help|/aide) echo "${D}/model [nom]  changer de modèle   ·   /q  quitter${R}"; continue ;;
+                /model*) __cmd_model "${q#/model}"; continue ;;
+                /*) echo "${D}Commande inconnue. /model [nom]  ·  /q${R}"; continue ;;
+            esac
             __say; ask "$SYSTEM_SUGGEST" "$q"; echo
         done
         echo "${D}À la prochaine.${R}"; exit 0 ;;
