@@ -1,0 +1,53 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-update — met à jour LexOS Pro depuis GitHub
+#  Télécharge le dernier APK publié et ouvre l'installateur Android.
+#  (Les mises à jour s'installent par-dessus car l'APK est signé avec
+#   une clé stable.)
+# =====================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'; G=$'\e[1;32m'
+
+REPO="alexmarceauprevost812-source/Terminal-LexOS-pro-apk"
+API="https://api.github.com/repos/$REPO/releases/latest"
+APK_OUT="$HOME/.lexos/LexOS-Pro.apk"
+ID_FILE="$HOME/.lexos/.update_id"
+FORCE=0
+[ "${1:-}" = "-f" ] || [ "${1:-}" = "--force" ] && FORCE=1
+[ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && { echo "lexos-update [-f]  — met à jour LexOS Pro (-f : force)"; exit 0; }
+
+# Dépendances
+miss=""
+command -v curl >/dev/null 2>&1 || miss="$miss curl"
+command -v jq   >/dev/null 2>&1 || miss="$miss jq"
+if [ -n "$miss" ]; then
+    echo "${RED}Il manque :${R}$miss"
+    printf "Les installer ? [O/n] "; read -r r
+    case "$r" in ""|o|O|y|Y) pkg install -y $miss ;; *) exit 1 ;; esac
+fi
+
+echo "${B}❯_ LexOS${R} ${D}Vérification de la dernière version…${R}"
+JSON=$(curl -fsSL --max-time 30 "$API" 2>/dev/null) || { echo "${RED}Pas de réseau ou dépôt injoignable.${R}"; exit 1; }
+
+URL=$(printf '%s' "$JSON" | jq -r '.assets[] | select(.name|endswith(".apk")) | .browser_download_url' | head -n1)
+TAG=$(printf '%s' "$JSON" | jq -r '.published_at // .id')
+[ -z "$URL" ] || [ "$URL" = "null" ] && { echo "${RED}Aucun APK dans la dernière release.${R}"; exit 1; }
+
+if [ "$FORCE" -eq 0 ] && [ -f "$ID_FILE" ] && [ "$(cat "$ID_FILE")" = "$TAG" ]; then
+    echo "${G}Déjà à jour.${R} ${D}(forcer la réinstallation : lexos-update -f)${R}"
+    exit 0
+fi
+
+echo "${D}Téléchargement…${R}"
+mkdir -p "$(dirname "$APK_OUT")"
+curl -fL --progress-bar "$URL" -o "$APK_OUT" || { echo "${RED}Échec du téléchargement.${R}"; exit 1; }
+printf '%s' "$TAG" > "$ID_FILE"
+
+echo "${G}Téléchargé.${R} Ouverture de l'installateur…"
+if command -v termux-open >/dev/null 2>&1; then
+    termux-open --view "$APK_OUT"
+    echo "${D}Si rien ne s'ouvre, installe l'APK à la main :${R} $APK_OUT"
+else
+    echo "${RED}termux-open absent.${R} Installe-le : ${B}pkg install termux-tools${R}"
+    echo "${D}APK téléchargé ici :${R} $APK_OUT"
+fi

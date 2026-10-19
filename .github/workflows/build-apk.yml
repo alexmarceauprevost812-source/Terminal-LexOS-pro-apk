@@ -40,6 +40,12 @@ jobs:
           LEXOS_APP_NAME: ${{ steps.cfg.outputs.LEXOS_APP_NAME }}
         run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
 
+      - name: Clé de signature stable (pour que les mises à jour s'installent)
+        run: |
+          mkdir -p "$HOME/.android"
+          cp "$GITHUB_WORKSPACE/lexos/keystore/lexos-debug.keystore" "$HOME/.android/debug.keystore"
+          echo "Clé de debug fixe installée -> signature identique à chaque build."
+
       - name: JDK 21
         uses: actions/setup-java@v4
         with:

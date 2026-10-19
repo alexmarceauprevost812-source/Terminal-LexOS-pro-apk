@@ -31,8 +31,8 @@ public final class LexosSetup {
 
     private static final String LOG_TAG = "LexosSetup";
 
-    /** À incrémenter quand aide/lexos.sh changent, pour forcer le redéploiement. */
-    private static final int LEXOS_SETUP_VERSION = 1;
+    /** À incrémenter quand aide/lexos.sh/couleurs changent, pour forcer le redéploiement. */
+    private static final int LEXOS_SETUP_VERSION = 2;
 
     private static final String HOME = TermuxConstants.TERMUX_HOME_DIR_PATH;
 
@@ -60,24 +60,20 @@ public final class LexosSetup {
             File bin = new File(HOME, "bin");
             //noinspection ResultOfMethodCallIgnored
             bin.mkdirs();
-            File aide = new File(bin, "aide");
-            copyAsset(context, "lexos/aide", aide);
-            //noinspection ResultOfMethodCallIgnored
-            aide.setExecutable(true, false);
+            installExecutable(context, "lexos/aide", new File(bin, "aide"));
+            installExecutable(context, "lexos/lexos-update", new File(bin, "lexos-update"));
 
             copyAsset(context, "lexos/lexos.sh", new File(lexosDir, "lexos.sh"));
+
+            File termuxDir = new File(HOME, ".termux");
+            //noinspection ResultOfMethodCallIgnored
+            termuxDir.mkdirs();
+            copyAsset(context, "lexos/colors.properties", new File(termuxDir, "colors.properties"));
         }
 
-        // Fichiers déployés seulement s'ils n'existent pas (pour ne pas écraser
-        // les réglages de l'utilisateur)
+        // config : seulement si absent (ne pas écraser le modèle IA choisi)
         File config = new File(lexosDir, "config");
         if (!config.exists()) copyAsset(context, "lexos/config", config);
-
-        File termuxDir = new File(HOME, ".termux");
-        //noinspection ResultOfMethodCallIgnored
-        termuxDir.mkdirs();
-        File colors = new File(termuxDir, "colors.properties");
-        if (!colors.exists()) copyAsset(context, "lexos/colors.properties", colors);
 
         ensureBashrcSourcesLexos();
 
@@ -97,6 +93,12 @@ public final class LexosSetup {
         try (OutputStream os = new FileOutputStream(bashrc, true)) {
             os.write(toAppend.getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    private static void installExecutable(Context context, String assetPath, File dest) throws IOException {
+        copyAsset(context, assetPath, dest);
+        //noinspection ResultOfMethodCallIgnored
+        dest.setExecutable(true, false);
     }
 
     private static void copyAsset(Context context, String assetPath, File dest) throws IOException {

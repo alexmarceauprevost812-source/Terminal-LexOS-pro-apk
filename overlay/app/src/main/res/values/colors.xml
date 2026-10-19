@@ -6,10 +6,10 @@
   Les couleurs DU terminal sont dans assets/lexos/colors.properties.
 -->
 <resources>
-    <!-- Oranges Marceau -->
-    <color name="lexos_orange">#FF8A1E</color>         <!-- accent principal -->
-    <color name="lexos_orange_bright">#FFB15C</color>  <!-- accent clair / actif -->
-    <color name="lexos_orange_deep">#C25E00</color>    <!-- orange profond -->
+    <!-- Oranges Marceau (orange exact de CodexLocal : #F87800) -->
+    <color name="lexos_orange">#F87800</color>         <!-- accent principal (exact) -->
+    <color name="lexos_orange_bright">#FFA040</color>  <!-- accent clair / actif -->
+    <color name="lexos_orange_deep">#B35500</color>    <!-- orange profond -->
 
     <!-- Noir Marceau -->
     <color name="lexos_bg">#000000</color>            <!-- fond principal (noir pur) -->

@@ -6,11 +6,15 @@ alias lex=aide
 
 # ---- Sortie en couleur ----
 export CLICOLOR=1
+export COLORTERM=truecolor
 alias ls='ls --color=auto'
 alias ll='ls -lah --color=auto'
 alias la='ls -A --color=auto'
 alias l='ls -CF --color=auto'
 alias grep='grep --color=auto'
+# Si bat / eza sont installés, on les utilise (encore plus de couleur) :
+command -v bat >/dev/null 2>&1 && alias cat='bat -pp'
+command -v eza >/dev/null 2>&1 && alias ls='eza --color=always --icons=auto' && alias ll='eza -lah --color=always --icons=auto'
 alias egrep='egrep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias diff='diff --color=auto'
@@ -30,18 +34,22 @@ export LESS_TERMCAP_me=$'\e[0m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESS_TERMCAP_se=$'\e[0m'
 
-# ---- Invite orange avec dossier + branche git ----
-__lexos_git() {
-    local b
-    b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || return
-    printf ' \e[38;5;80m(%s)\e[0m' "$b"
+# ---- Invite : dossier orange + branche git cyan + flèche verte/rouge selon le résultat ----
+__lexos_ps1() {
+    local e=$?
+    local o=$'\[\e[38;2;248;120;0m\]' cy=$'\[\e[38;2;54;198;224m\]' z=$'\[\e[0m\]'
+    local ok=$'\[\e[1;38;2;248;120;0m\]' ko=$'\[\e[1;31m\]'
+    local br="" b
+    b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && br=" ${cy}(${b})${z}"
+    local arrow; [ "$e" -eq 0 ] && arrow="${ok}❯${z}" || arrow="${ko}❯${z}"
+    PS1="${o}\w${z}${br} ${arrow} "
 }
-PS1='\[\e[38;5;208m\]\w\[\e[0m\]$(__lexos_git) \[\e[1;38;5;208m\]❯\[\e[0m\] '
+PROMPT_COMMAND=__lexos_ps1
 
 # ---- Bannière d'accueil (une fois par session, en interactif) ----
 if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 1 ]; then
     export LEXOS_MOTD_SHOWN=1
-    printf '\e[1;38;5;208m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'
-    printf '\e[2mTape\e[0m \e[1;38;5;208maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
-    printf '\e[2mEx :\e[0m aide comment installer python\n\n'
+    printf '\e[1;38;2;248;120;0m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'
+    printf '\e[2mTape\e[0m \e[1;38;2;248;120;0maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
+    printf '\e[2mEx :\e[0m aide comment installer python   \e[2m·  maj :\e[0m lexos-update\n\n'
 fi

@@ -55,6 +55,21 @@ Il tourne sur une **IA locale**, au choix (configurable dans `~/.lexos/config`) 
 
 `aide --install-ia` affiche ces étapes à tout moment.
 
+### Compatible avec les modèles de CodexLocal
+Oui : `aide` charge **les mêmes fichiers `.gguf`** que CodexLocal
+(DeepSeek-R1-Distill-Qwen, qwen2.5-coder, etc.) via llama.cpp. Il suffit que
+le modèle soit dans le **stockage partagé** (`~/storage/shared/Models/`) pour
+que les deux apps lisent le même fichier — aucun téléchargement en double.
+
+## 🔄 Mettre à jour
+
+Dans le terminal :
+```
+lexos-update        # télécharge et installe la dernière version depuis GitHub
+```
+Les mises à jour s'installent **par-dessus** (l'APK est signé avec une clé
+stable, voir `keystore/`). La commande apparaît aussi dans le message d'accueil.
+
 ---
 
 ## 🔗 Compatibilité avec CodexLocal
