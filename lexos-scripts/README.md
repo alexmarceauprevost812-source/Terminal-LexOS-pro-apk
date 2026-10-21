@@ -67,3 +67,13 @@ dans `assets/menu-gauche.png`.
 ### `reference/` — documents de référence
 - `couleurs-commandes-lexos-term.xlsx` — table officielle emoji / commande / couleur / code hex
   du terminal LEXOS. Les codes correspondent à ceux codés dans `app-design/`.
+
+### Thème terminal + animations (couche d'affichage)
+- `prefix-bin/couleurs.sh` — **source unique** de toutes les couleurs (ANSI 24 bits) +
+  fonctions d'animation : `lexos_banner`, `lexos_spinner`, `lexos_bar`, `lexos_download`,
+  `lexos_update`, `lexos_thinking`, `lexos_lines`, `lexos_gamer`, `lexos_cmd_color`,
+  `lexos_mode_color`, `lexos_hex`, `lexos_reset`. À sourcer dans lexos/aide/catalogue.
+  Démo : `couleurs.sh demo`.
+- `config/termux.colors.properties` — thème Termux noir mat (→ `~/.termux/colors.properties`,
+  puis `termux-reload-settings`).
+- `reference/MISES-A-JOUR-TERMINAL-LEXOS.md` — cahier des charges du reskin terminal.
