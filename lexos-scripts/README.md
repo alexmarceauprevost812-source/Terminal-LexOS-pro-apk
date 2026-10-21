@@ -55,3 +55,11 @@ chmod +x ~/bin/* $PREFIX/bin/*
   ```bash
   lexos-header "CATALOGUE OUTILS"
   ```
+
+### `app-design/` — sources de l'app visuelle (canevas de design)
+- `Main.dc.html` — maquette « LEXOS-PRO » (téléphone) : header + bouton icône (menu gauche) + tiroir SYSTÈME (bureau à distance)
+- `LexOS.dc.html` — maquette « LexOS IA » (nouveau modèle) : modes IA, commandes, menu gauche, bureau à distance
+- `canvas.json` — index du canevas (positions des maquettes)
+
+Ces fichiers sont les sources de l'artifact de design LEXOS. L'icône du menu est
+dans `assets/menu-gauche.png`.
