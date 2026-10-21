@@ -1,0 +1,35 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  lexos — raccourcis LexOS Pro
+#     lexos maj        met à jour l'application (depuis la branche main)
+#     lexos parler     parle à l'IA (le codex)
+#     lexos couleurs   active toutes les couleurs
+# =============================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'
+
+case "${1:-}" in
+    maj|màj|mise|miss|"mise-à-jour"|mise-a-jour|update|up|mettre)
+        shift; exec lexos-update "$@" ;;
+    ia|installer|install|installe)
+        shift; exec lexos-ia "$@" ;;
+    parler|parle|chat|lex|aide)
+        shift; exec aide "$@" ;;
+    outils|outil|catalogue|tools)
+        exec catalogue ;;
+    modeles|modele|model|ia-modele)
+        exec lexos-modeles ;;
+    couleurs|couleur|color)
+        exec lexos-couleurs ;;
+    ""|-h|--help|aide-moi)
+        echo "${B}lexos${R} — raccourcis LexOS Pro"
+        echo "  ${B}lexos ia${R}         installer / démarrer l'IA locale"
+        echo "  ${B}lexos parler${R}     parler à l'IA (le codex)"
+        echo "  ${B}lexos maj${R}        mettre à jour l'application"
+        echo "  ${B}lexos couleurs${R}   activer toutes les couleurs"
+        echo "  ${B}lexos outils${R}     catalogue des outils de securite"
+        echo "${D}(tu peux aussi écrire : lexos mise à jour)${R}" ;;
+    *)
+        echo "Commande inconnue : ${1}"
+        echo "${D}Essaie :${R} lexos maj  ·  lexos parler  ·  lexos couleurs" ;;
+esac
