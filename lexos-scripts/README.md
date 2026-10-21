@@ -45,3 +45,6 @@ cp lexos-scripts/prefix-bin/*   $PREFIX/bin/
 chmod +x ~/bin/* $PREFIX/bin/*
 # puis replacer les configs à la main selon le tableau ci-dessus
 ```
+
+### `assets/`
+- `menu-gauche.png` — icône (512x512, capuche noir/orange) pour ouvrir le menu de gauche / header du catalogue
