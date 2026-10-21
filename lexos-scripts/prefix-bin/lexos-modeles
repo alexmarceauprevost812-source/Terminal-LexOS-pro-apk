@@ -1,0 +1,18 @@
+#!/data/data/com.termux/files/usr/bin/bash
+export DIALOGRC="$HOME/.lexos/dialogrc"
+command -v dialog >/dev/null 2>&1 || pkg install -y dialog
+CFG="$HOME/.lexos/config"; mkdir -p ~/.lexos
+PART="$HOME/storage/shared/Marceau/models"
+ACT=$(grep '^LEXAI_MODEL=' "$CFG" 2>/dev/null | cut -d'"' -f2)
+items=()
+# Modeles Ollama
+while read -r m; do [ -n "$m" ] && items+=("$m" "Ollama"); done < <(find ~/.ollama/models/manifests -type f 2>/dev/null | sed 's#.*/library/##; s#/#:#' | sort -u)
+# Modeles .gguf partages (CodexLocal)
+while read -r f; do [ -n "$f" ] && items+=("$f" ".gguf partagé"); done < <(find "$PART" -iname "*.gguf" 2>/dev/null)
+[ ${#items[@]} -eq 0 ] && { echo "Aucun modèle. Ollama : lexos ia <nom> · ou dépose un .gguf dans $PART"; exit 1; }
+ch=$(dialog --clear --title "🤖 LexOS — Choisir l'IA" --no-cancel \
+  --menu "\n  Actif : ${ACT:-aucun}\n\n  Modèles disponibles :" 20 66 12 "${items[@]}" 3>&1 1>&2 2>&3) || exit 0
+grep -v '^LEXAI_MODEL=' "$CFG" > "$CFG.tmp" 2>/dev/null; mv "$CFG.tmp" "$CFG" 2>/dev/null
+echo "LEXAI_MODEL=\"$ch\"" >> "$CFG"
+clear
+echo -e "\033[38;5;208m✓ Modèle actif : \033[1;38;5;196m$ch\033[0m"

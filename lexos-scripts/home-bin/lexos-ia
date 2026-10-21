@@ -1,0 +1,55 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-ia — installe et démarre l'IA locale automatiquement (llama.cpp)
+#  (Ollama ne fonctionne pas sur Android : on utilise llama.cpp, fiable.)
+#     - installe llama.cpp (+ met à jour la lib si besoin)
+#     - télécharge un petit modèle .gguf (une seule fois)
+#     - démarre le serveur en arrière-plan
+#     - configure LexOS pour l'utiliser
+#  Usage : lexos-ia [chemin-ou-url-du-.gguf]
+# =====================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;38;2;255;23;68m'
+
+MODELS_DIR="$HOME/.lexos/models"; mkdir -p "$MODELS_DIR"
+PORT="8080"
+GGUF_DEFAULT="$MODELS_DIR/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+GGUF_URL="https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+GGUF="${1:-${LEXAI_GGUF:-$GGUF_DEFAULT}}"
+
+up() { curl -s --max-time 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
+
+echo "${B}❯_ LexOS${R} Préparation de l'IA locale…"
+
+# 1) llama.cpp installé et fonctionnel ?
+if ! command -v llama-server >/dev/null 2>&1; then
+    echo "${D}Installation de llama.cpp…${R}"
+    pkg install -y llama-cpp || { echo "${RED}Échec installation llama.cpp${R}"; exit 1; }
+fi
+# Vérifier qu'il se lie (bug connu : lib système trop vieille) ; sinon tout mettre à jour
+if ! llama-cli --version >/dev/null 2>&1; then
+    echo "${D}Mise à jour des bibliothèques (une fois)…${R}"
+    pkg upgrade -y || true
+fi
+
+# 2) Modèle présent ? (sinon télécharger)
+if [ ! -f "$GGUF" ]; then
+    echo "${D}Téléchargement du modèle (une seule fois)…${R}"
+    curl -L --fail -o "$GGUF" "$GGUF_URL" || { echo "${RED}Échec du téléchargement du modèle${R}"; exit 1; }
+fi
+
+# 3) Config : backend llama + chemin du modèle (si pas déjà réglé)
+touch "$HOME/.lexos/config"
+grep -q 'LEXAI_BACKEND="llama"' "$HOME/.lexos/config" || echo 'LEXAI_BACKEND="llama"' >> "$HOME/.lexos/config"
+grep -q "LEXAI_GGUF=" "$HOME/.lexos/config" || echo "LEXAI_GGUF=\"$GGUF\"" >> "$HOME/.lexos/config"
+
+# 4) Démarrer le serveur si pas déjà en marche
+if ! up; then
+    echo "${D}Démarrage du moteur en arrière-plan…${R}"
+    nohup llama-server -m "$GGUF" --host 127.0.0.1 --port "$PORT" >"$HOME/.lexos/llama.log" 2>&1 &
+    for _ in $(seq 1 40); do up && break; sleep 1; done
+    up || { echo "${RED}Le moteur n'a pas démarré. Voir ~/.lexos/llama.log${R}"; exit 1; }
+fi
+
+echo "${G}IA prête !${R} Parle-lui : ${B}lex${R}"
