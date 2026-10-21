@@ -77,3 +77,14 @@ dans `assets/menu-gauche.png`.
 - `config/termux.colors.properties` — thème Termux noir mat (→ `~/.termux/colors.properties`,
   puis `termux-reload-settings`).
 - `reference/MISES-A-JOUR-TERMINAL-LEXOS.md` — cahier des charges du reskin terminal.
+
+## Installer sur le téléphone (Termux) — en une ligne
+```bash
+pkg install -y git && \
+git clone -b ccr-290bfce8-4waano \
+  https://github.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk && \
+bash Terminal-LexOS-pro-apk/lexos-scripts/install.sh
+```
+`install.sh` copie les scripts (`home-bin/` → `~/bin`, `prefix-bin/` → `$PREFIX/bin`),
+applique le thème Termux, ajoute `~/bin` au PATH et affiche la démo des couleurs.
+Ensuite : tape `lexos` pour démarrer.
