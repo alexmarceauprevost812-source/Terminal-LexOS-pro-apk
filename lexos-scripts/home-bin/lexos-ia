@@ -10,6 +10,7 @@
 # =====================================================================
 set -u
 B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;38;2;255;23;68m'
+DL=$'\e[1;38;2;180;107;255m'   # violet LexOS (téléchargement)
 
 MODELS_DIR="$HOME/.lexos/models"; mkdir -p "$MODELS_DIR"
 PORT="8080"
@@ -35,8 +36,9 @@ fi
 
 # 2) Modèle présent ? (sinon télécharger)
 if [ ! -f "$GGUF" ]; then
-    echo "${D}Téléchargement du modèle (une seule fois)…${R}"
-    curl -L --fail -o "$GGUF" "$GGUF_URL" || { echo "${RED}Échec du téléchargement du modèle${R}"; exit 1; }
+    printf '%s⬇️  Téléchargement du modèle (une seule fois)…%s\n' "$DL" "$R"
+    curl -L --fail --progress-bar -o "$GGUF" "$GGUF_URL" || { echo "${RED}Échec du téléchargement du modèle${R}"; exit 1; }
+    printf '%s💜 Modèle téléchargé ✅%s\n' "$DL" "$R"
 fi
 
 # 3) Config : backend llama + chemin du modèle (si pas déjà réglé)
