@@ -1,0 +1,46 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# lexos-header : affiche l'icône LexOS en header (chafa), thème noir/orange.
+# Usage : lexos-header            -> affiche le header
+#         lexos-header "TITRE"    -> header + titre sous l'image
+# Surcharge du chemin image : export LEXOS_HEADER_IMG=/chemin/vers/img.png
+
+ORANGE=$'\033[38;5;208m'
+RED=$'\033[38;5;196m'
+RST=$'\033[0m'
+
+# Emplacements candidats de l'image (le premier trouvé gagne)
+IMG="${LEXOS_HEADER_IMG:-}"
+if [ -z "$IMG" ]; then
+  for c in \
+    "$HOME/lexos-scripts/assets/menu-gauche.png" \
+    "$HOME/.lexos/menu-gauche.png" \
+    "$PREFIX/share/lexos/menu-gauche.png" \
+    "/storage/emulated/0/Marceau/menu-gauche.png"
+  do
+    [ -f "$c" ] && IMG="$c" && break
+  done
+fi
+
+# Largeur du terminal (fallback 40 colonnes)
+COLS=$(tput cols 2>/dev/null || echo 40)
+[ "$COLS" -gt 48 ] && COLS=48   # on borne pour garder un header compact
+
+clear 2>/dev/null
+
+if command -v chafa >/dev/null 2>&1 && [ -n "$IMG" ] && [ -f "$IMG" ]; then
+  # --center on : centre l'image ; hauteur ~ moitié de la largeur (ratio 2:1 des cellules)
+  chafa --clear --center on --size="${COLS}x$((COLS/2))" "$IMG" 2>/dev/null
+else
+  # Fallback ASCII si chafa absent ou image introuvable
+  printf '%s' "$ORANGE"
+  printf '    ╔══════════════════════════╗\n'
+  printf '    ║        L E X O S          ║\n'
+  printf '    ╚══════════════════════════╝%s\n' "$RST"
+  [ -n "$IMG" ] && [ ! -f "$IMG" ] && \
+    printf '%s  (image introuvable : %s)%s\n' "$RED" "$IMG" "$RST"
+fi
+
+# Titre optionnel sous l'image
+if [ -n "$1" ]; then
+  printf '%s%*s%s\n' "$RED" $(( (COLS + ${#1}) / 2 )) "$1" "$RST"
+fi

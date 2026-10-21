@@ -48,3 +48,10 @@ chmod +x ~/bin/* $PREFIX/bin/*
 
 ### `assets/`
 - `menu-gauche.png` — icône (512x512, capuche noir/orange) pour ouvrir le menu de gauche / header du catalogue
+
+### Header du catalogue
+- `prefix-bin/lexos-header` — affiche `menu-gauche.png` en header via `chafa` (fallback ASCII).
+  Ajouter en haut du script `catalogue` :
+  ```bash
+  lexos-header "CATALOGUE OUTILS"
+  ```
