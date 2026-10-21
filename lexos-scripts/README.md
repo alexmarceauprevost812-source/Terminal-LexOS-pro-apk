@@ -101,3 +101,7 @@ Ensuite : tape `lexos` pour démarrer.
   `nuclei` `masscan` `ettercap` `reaver` `wifite` `searchsploit` `medusa` `commix`
   `wafw00f` `dnsrecon` `theHarvester`.
 - ⚠️ Lanceurs vers des outils déjà installés — usage sur cibles autorisées uniquement.
+
+### Image en haut du terminal (bannière)
+- `prefix-bin/lexos-banniere` — affiche l'image (via `chafa`) + le titre en haut du terminal.
+  `install.sh` l'ajoute à `~/.bashrc` pour qu'elle apparaisse à chaque ouverture (une fois par session).

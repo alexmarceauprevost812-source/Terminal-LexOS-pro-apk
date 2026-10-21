@@ -1,0 +1,41 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  lexos-banniere — image + titre en haut du terminal (affichée au démarrage).
+#  Appelée une fois par session depuis ~/.bashrc (voir install.sh).
+#  Forcer une image :  export LEXOS_HEADER_IMG=/chemin/img.png
+# =============================================================================
+PFX="${PREFIX:-/data/data/com.termux/files/usr}"
+# shellcheck source=/dev/null
+[ -r "$PFX/bin/couleurs.sh" ] && source "$PFX/bin/couleurs.sh"
+
+ORANGE=$'\033[1;38;2;255;140;0m'
+GREEN=$'\033[38;2;57;255;136m'
+DIM=$'\033[2m'
+RST=$'\033[0m'
+
+# Emplacements candidats de l'image (le premier trouvé gagne).
+IMG="${LEXOS_HEADER_IMG:-}"
+if [ -z "$IMG" ]; then
+  for c in \
+    "$HOME/lexos-scripts/assets/menu-gauche.png" \
+    "$HOME/.lexos/menu-gauche.png" \
+    "$PFX/share/lexos/menu-gauche.png"
+  do
+    [ -f "$c" ] && IMG="$c" && break
+  done
+fi
+
+COLS=$(tput cols 2>/dev/null || echo 40)
+[ "$COLS" -gt 44 ] && COLS=44
+
+if command -v chafa >/dev/null 2>&1 && [ -n "$IMG" ] && [ -f "$IMG" ]; then
+  chafa --center on --size="${COLS}x$((COLS/2))" "$IMG" 2>/dev/null
+else
+  printf '%s  ╔══════════════════════════╗%s\n' "$ORANGE" "$RST"
+  printf '%s  ║   TI-LEX  TERMINAL  PRO   ║%s\n' "$ORANGE" "$RST"
+  printf '%s  ╚══════════════════════════╝%s\n' "$ORANGE" "$RST"
+fi
+
+printf '%sTI-LEX TERMINAL PRO%s %sv4%s\n' "$ORANGE" "$RST" "$GREEN" "$RST"
+printf '%sUbuntu · LexOS · Développement · Cybersécurité · IA%s\n' "$DIM" "$RST"
+printf '%sTape %slexos%s%s pour les raccourcis.%s\n' "$DIM" "$ORANGE" "$RST" "$DIM" "$RST"

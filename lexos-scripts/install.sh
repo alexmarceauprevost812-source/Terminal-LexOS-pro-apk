@@ -70,11 +70,26 @@ if [ -f "$HERE/config/termux.colors.properties" ]; then
   ok "thème Termux appliqué (ancien → colors.properties.bak)"
 fi
 
-# 6. Icône partagée (header / menu)
+# 6. Icône partagée (header / menu / bannière)
 if [ -f "$HERE/assets/menu-gauche.png" ]; then
   mkdir -p "$HOME/lexos-scripts/assets"
   cp "$HERE/assets/menu-gauche.png" "$HOME/lexos-scripts/assets/menu-gauche.png"
   ok "icône LexOS copiée"
+fi
+
+# 7. Bannière (image) en haut du terminal à chaque ouverture
+if ! grep -q 'LEXOS_BANNER' "$HOME/.bashrc" 2>/dev/null; then
+  cat >> "$HOME/.bashrc" <<'HOOK'
+
+# --- LexOS : image en haut du terminal (une fois par session) ---
+if [ -z "${LEXOS_BANNER:-}" ] && [ -t 1 ] && command -v lexos-banniere >/dev/null 2>&1; then
+  export LEXOS_BANNER=1
+  lexos-banniere
+fi
+HOOK
+  ok "bannière ajoutée au démarrage (~/.bashrc)"
+else
+  skip "bannière déjà configurée"
 fi
 
 echo
