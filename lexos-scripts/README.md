@@ -63,3 +63,7 @@ chmod +x ~/bin/* $PREFIX/bin/*
 
 Ces fichiers sont les sources de l'artifact de design LEXOS. L'icône du menu est
 dans `assets/menu-gauche.png`.
+
+### `reference/` — documents de référence
+- `couleurs-commandes-lexos-term.xlsx` — table officielle emoji / commande / couleur / code hex
+  du terminal LEXOS. Les codes correspondent à ceux codés dans `app-design/`.
