@@ -1,0 +1,79 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  catalogue — menu des outils d'audit Kali (thème LexOS noir/orange)
+#  Lancé par : lexos outils   (ou : catalogue)
+#  Chaque outil est lancé via son pont (kali -r <outil>). Outils déjà installés.
+#  ⚠️ Usage autorisé uniquement : tes propres cibles ou autorisation explicite.
+# =============================================================================
+set -u
+export DIALOGRC="${DIALOGRC:-$HOME/.lexos/dialogrc}"
+PFX="${PREFIX:-/data/data/com.termux/files/usr}"
+# shellcheck source=/dev/null
+[ -r "$PFX/bin/couleurs.sh" ] && source "$PFX/bin/couleurs.sh"
+
+# Lance un outil puis attend avant de revenir au menu.
+launch() {
+  local t=$1
+  clear
+  if command -v "$t" >/dev/null 2>&1; then
+    "$t"
+  else
+    printf 'Outil introuvable : %s\n' "$t"
+    printf 'Il se lance via Kali (kali -r %s). Vérifie Kali : lexos ia\n' "$t"
+  fi
+  printf '\n— Appuie sur Entrée pour revenir au catalogue —'
+  read -r _
+}
+
+# Repli texte si dialog n'est pas installé.
+menu_texte() {
+  clear
+  command -v lexos-header >/dev/null 2>&1 && lexos-header "CATALOGUE D'AUDIT"
+  echo "Outils (tape le nom, ou 'q' pour quitter) :"
+  echo "  🌐 nmap masscan dnsrecon theHarvester"
+  echo "  🕸️  nikto sqlmap wpscan gobuster dirbuster nuclei wafw00f commix"
+  echo "  🔐 hydra medusa    📡 wifite reaver    🕵️ ettercap"
+  echo "  🎯 searchsploit metasploit"
+  while :; do
+    printf '%soutil ❯%s ' "${LEXOS_DL:-}" "${LEXOS_RESET:-}"
+    read -r t || break
+    [ "$t" = q ] || [ -z "$t" ] && break
+    launch "$t"
+  done
+}
+
+if ! command -v dialog >/dev/null 2>&1; then
+  menu_texte
+  exit 0
+fi
+
+command -v lexos-header >/dev/null 2>&1 && { lexos-header "CATALOGUE D'AUDIT"; sleep 1; }
+
+while :; do
+  choix=$(dialog --clear --stdout \
+    --backtitle "LexOS · Catalogue d'audit (Kali) — cibles autorisées uniquement" \
+    --title " OUTILS D'AUDIT " \
+    --menu "Choisis un outil :" 0 0 0 \
+      nmap         "🌐 Scan réseau / ports" \
+      masscan      "🌐 Scan massif de ports" \
+      dnsrecon     "🌐 Reconnaissance DNS" \
+      theHarvester "🌐 OSINT emails / sous-domaines" \
+      nikto        "🕸️  Scan serveur web" \
+      sqlmap       "🕸️  Injection SQL" \
+      wpscan       "🕸️  Audit WordPress" \
+      gobuster     "🕸️  Brute force répertoires / DNS" \
+      dirbuster    "🕸️  Brute force répertoires" \
+      nuclei       "🕸️  Scan de vulnérabilités" \
+      wafw00f      "🕸️  Détection de WAF" \
+      commix       "🕸️  Injection de commandes" \
+      hydra        "🔐 Brute force identifiants" \
+      medusa       "🔐 Brute force identifiants" \
+      wifite       "📡 Audit WiFi automatique" \
+      reaver       "📡 Audit WPS" \
+      ettercap     "🕵️  MITM réseau local" \
+      searchsploit "🎯 Recherche d'exploits (offline)" \
+      metasploit   "🎯 Framework Metasploit")
+  [ -z "${choix:-}" ] && break
+  launch "$choix"
+done
+clear

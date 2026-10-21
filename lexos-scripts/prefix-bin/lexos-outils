@@ -1,0 +1,3 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# lexos-outils — raccourci vers le catalogue des outils d'audit.
+exec catalogue "$@"

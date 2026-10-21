@@ -92,3 +92,12 @@ Ensuite : tape `lexos` pour démarrer.
 ### `lexos couleurs`
 - `prefix-bin/lexos-couleurs` — appelé par `lexos couleurs` ; source `couleurs.sh` et
   affiche la bannière + la table des couleurs. `lexos couleurs demo` ajoute les animations.
+
+### Outils d'audit Kali (ponts) — `lexos outils`
+- `prefix-bin/catalogue` — menu `dialog` (thème LexOS) des outils d'audit, header image, lance via les ponts.
+- `prefix-bin/lexos-outils` — raccourci vers `catalogue`.
+- Ponts (chacun = `kali -r <outil>`), outils déjà installés côté Kali/Termux :
+  `sqlmap` `msfconsole` `metasploit` `hydra` `nikto` `wpscan` `dirbuster` `gobuster`
+  `nuclei` `masscan` `ettercap` `reaver` `wifite` `searchsploit` `medusa` `commix`
+  `wafw00f` `dnsrecon` `theHarvester`.
+- ⚠️ Lanceurs vers des outils déjà installés — usage sur cibles autorisées uniquement.

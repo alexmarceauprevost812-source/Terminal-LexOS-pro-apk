@@ -1,0 +1,9 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# Pont LexOS → Kali : MITM réseau local
+# Lance « ettercap » dans Kali NetHunter (root). Outil déjà installé côté Kali/Termux.
+# Usage autorisé uniquement (tes cibles ou autorisation explicite).
+command -v kali >/dev/null 2>&1 || {
+  echo "Kali NetHunter requis (commande « kali »). Installe/démarre-le : lexos ia" >&2
+  exit 1
+}
+exec kali -r ettercap "$@"
