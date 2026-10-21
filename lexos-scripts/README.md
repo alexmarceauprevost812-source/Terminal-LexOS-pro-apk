@@ -88,3 +88,7 @@ bash Terminal-LexOS-pro-apk/lexos-scripts/install.sh
 `install.sh` copie les scripts (`home-bin/` → `~/bin`, `prefix-bin/` → `$PREFIX/bin`),
 applique le thème Termux, ajoute `~/bin` au PATH et affiche la démo des couleurs.
 Ensuite : tape `lexos` pour démarrer.
+
+### `lexos couleurs`
+- `prefix-bin/lexos-couleurs` — appelé par `lexos couleurs` ; source `couleurs.sh` et
+  affiche la bannière + la table des couleurs. `lexos couleurs demo` ajoute les animations.

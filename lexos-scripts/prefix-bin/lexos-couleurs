@@ -1,0 +1,50 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  lexos-couleurs — montre toutes les couleurs LexOS (source : couleurs.sh)
+#  Appelé par : lexos couleurs
+#  « lexos couleurs demo » ajoute les animations (scan, téléchargement, gamer).
+# =============================================================================
+set -u
+PFX="${PREFIX:-/data/data/com.termux/files/usr}"
+
+# shellcheck source=/dev/null
+if [ -r "$PFX/bin/couleurs.sh" ]; then
+  source "$PFX/bin/couleurs.sh"
+else
+  echo "couleurs.sh introuvable dans \$PREFIX/bin — relance install.sh" >&2
+  exit 1
+fi
+
+clear
+lexos_banner
+echo
+
+printf '%s— Couleurs des commandes —%s\n' "$LEXOS_FG" "$LEXOS_RESET"
+printf '%s⬇️  telecharger / wget / curl / git clone / install%s\n' "$LEXOS_DL"   "$LEXOS_RESET"
+printf '%s🔍 scan / nmap%s\n'       "$LEXOS_SCAN"  "$LEXOS_RESET"
+printf '%s📡 ping%s\n'              "$LEXOS_NET"   "$LEXOS_RESET"
+printf '%s🔄 maj / update%s\n'      "$LEXOS_OK"    "$LEXOS_RESET"
+printf '%s🔥 supprimer / rm%s\n'    "$LEXOS_DEL"   "$LEXOS_RESET"
+printf '%s📖 aide / help%s\n'       "$LEXOS_HELP"  "$LEXOS_RESET"
+printf '%s❌ erreur%s\n'            "$LEXOS_ERR"   "$LEXOS_RESET"
+printf '%s🌈 gamer / rgb%s\n'       "$LEXOS_GAMER" "$LEXOS_RESET"
+echo
+
+printf '%s— Modes IA —%s\n' "$LEXOS_FG" "$LEXOS_RESET"
+printf '%s💬 /chat%s    %s🧠 /codex%s\n'  "$LEXOS_CHAT"  "$LEXOS_RESET" "$LEXOS_CODEX" "$LEXOS_RESET"
+printf '%s⚙️  /auto%s    %s🕵️  /agent%s\n' "$LEXOS_AUTO"  "$LEXOS_RESET" "$LEXOS_AGENT" "$LEXOS_RESET"
+printf '%s🧩 /model%s   %s👋 /q%s\n'      "$LEXOS_MODEL" "$LEXOS_RESET" "$LEXOS_QUIT"  "$LEXOS_RESET"
+echo
+
+case "${1:-}" in
+  demo|anim|--demo)
+    lexos_lines "$LEXOS_SCAN" 0.4 '🔍 Scan du réseau…' '🛰️  192.168.1.1  routeur' '📱  192.168.1.12 téléphone'
+    echo
+    lexos_download modele.gguf
+    echo
+    lexos_gamer
+    ;;
+esac
+
+lexos_reset
+echo

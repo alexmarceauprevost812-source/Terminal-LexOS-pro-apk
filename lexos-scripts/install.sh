@@ -39,6 +39,7 @@ if [ -d "$HERE/home-bin" ]; then
   for f in "$HERE"/home-bin/*; do
     [ -e "$f" ] || continue
     b=$(basename "$f")
+    [ -e "$BIN/$b" ] && ! cmp -s "$f" "$BIN/$b" && cp "$BIN/$b" "$BIN/$b.bak" && skip "ancien ~/bin/$b → $b.bak"
     cp "$f" "$BIN/$b" && chmod +x "$BIN/$b" && ok "~/bin/$b"
   done
 fi
@@ -48,6 +49,7 @@ if [ -d "$HERE/prefix-bin" ]; then
   for f in "$HERE"/prefix-bin/*; do
     [ -e "$f" ] || continue
     b=$(basename "$f")
+    [ -e "$PFX/bin/$b" ] && ! cmp -s "$f" "$PFX/bin/$b" && cp "$PFX/bin/$b" "$PFX/bin/$b.bak" && skip "ancien \$PREFIX/bin/$b → $b.bak"
     cp "$f" "$PFX/bin/$b" && chmod +x "$PFX/bin/$b" && ok "\$PREFIX/bin/$b"
   done
 fi
