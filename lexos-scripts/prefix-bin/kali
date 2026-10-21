@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/bash
+fix_dns(){ nethunter -r sh -c "printf 'nameserver 8.8.8.8\n' > /etc/resolv.conf" 2>/dev/null; }
+if [ "$1" = "-r" ] || [ "$1" = "root" ]; then shift; fix_dns; exec nethunter -r "$@"; fi
+exec nethunter "$@"
