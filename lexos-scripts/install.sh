@@ -81,20 +81,21 @@ if [ -f "$HERE/assets/menu-gauche.png" ]; then
   ok "icône LexOS copiée"
 fi
 
-# 7. Bannière (image) en haut du terminal à chaque ouverture
-if ! grep -q 'LEXOS_BANNER' "$HOME/.bashrc" 2>/dev/null; then
-  cat >> "$HOME/.bashrc" <<'HOOK'
-
-# --- LexOS : image en haut du terminal (une fois par session) ---
-if [ -z "${LEXOS_BANNER:-}" ] && [ -t 1 ] && command -v lexos-banniere >/dev/null 2>&1; then
-  export LEXOS_BANNER=1
-  lexos-banniere
+# 7. Menu d'accueil à l'ouverture du terminal (remplace tout ancien hook)
+if [ -f "$HOME/.bashrc" ]; then
+  # Nettoie l'ancien bloc (style marqueurs) et l'ancien bloc bannière.
+  sed -i '/# >>> LexOS >>>/,/# <<< LexOS <<</d' "$HOME/.bashrc" 2>/dev/null
+  sed -i '/# --- LexOS : image/,/^fi$/d' "$HOME/.bashrc" 2>/dev/null
 fi
+cat >> "$HOME/.bashrc" <<'HOOK'
+# >>> LexOS >>>
+if [ -z "${LEXOS_MENU_SHOWN:-}" ] && [ -t 0 ] && [ -t 1 ] && command -v lexos-menu >/dev/null 2>&1; then
+  export LEXOS_MENU_SHOWN=1
+  lexos-menu
+fi
+# <<< LexOS <<<
 HOOK
-  ok "bannière ajoutée au démarrage (~/.bashrc)"
-else
-  skip "bannière déjà configurée"
-fi
+ok "menu d'accueil au démarrage (~/.bashrc)"
 
 echo
 say "Terminé !"

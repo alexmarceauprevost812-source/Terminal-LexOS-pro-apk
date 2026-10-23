@@ -9,8 +9,12 @@ set -u
 B=$'\e[1;38;2;248;120;0m'; D=$'\e[2m'; R=$'\e[0m'
 
 case "${1:-}" in
+    menu|accueil|demarrer|start)
+        exec lexos-menu ;;
     maj|màj|mise|miss|"mise-à-jour"|mise-a-jour|update|up|mettre)
-        shift; exec lexos-update "$@" ;;
+        shift
+        command -v lexos-sync >/dev/null 2>&1 && lexos-sync   # scripts + outils
+        exec lexos-update "$@" ;;                              # puis l'appli (APK)
     ia|installer|install|installe)
         shift; exec lexos-ia "$@" ;;
     parler|parle|chat|lex|aide)
@@ -23,6 +27,7 @@ case "${1:-}" in
         exec lexos-couleurs ;;
     ""|-h|--help|aide-moi)
         echo "${B}lexos${R} — raccourcis LexOS Pro"
+        echo "  ${B}lexos menu${R}       ouvrir le menu d'accueil (1 à 6)"
         echo "  ${B}lexos ia${R}         installer / démarrer l'IA locale"
         echo "  ${B}lexos parler${R}     parler à l'IA (le codex)"
         echo "  ${B}lexos maj${R}        mettre à jour l'application"

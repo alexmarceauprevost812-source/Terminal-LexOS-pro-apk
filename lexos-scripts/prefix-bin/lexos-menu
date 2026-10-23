@@ -1,0 +1,63 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  lexos-menu — menu d'accueil LexOS (bannière + choix 1 à 6).
+#  Affiché à l'ouverture de l'appli (via ~/.bashrc) et avec « lexos menu ».
+# =============================================================================
+set -u
+O=$'\e[1;38;2;255;140;0m'     # orange LexOS
+G=$'\e[38;2;57;255;136m'      # vert
+GR=$'\e[2m'                   # gris / atténué
+RED=$'\e[1;38;2;255;77;109m'  # rouge erreur
+R=$'\e[0m'
+PFX="${PREFIX:-/data/data/com.termux/files/usr}"
+
+# En-tête : grand logo LEXOS (comme « lex ») + icône + sous-titre.
+header() {
+  local cols; cols=$(tput cols 2>/dev/null || echo 44); [ "$cols" -gt 54 ] && cols=54
+  if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
+    chafa --size="${cols}x" "$HOME/.lexos/banner.png" 2>/dev/null
+  elif [ -f "$HOME/.lexos/banner.txt" ]; then
+    cat "$HOME/.lexos/banner.txt"
+  elif command -v lexos-banniere >/dev/null 2>&1; then
+    lexos-banniere; return
+  fi
+  printf "%sTERMINAL PRO%s · LexOS · IA locale · tout-en-un\n" "$G" "$R"
+}
+
+# Terminal non interactif : juste la bannière, pas de menu.
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  header
+  exit 0
+fi
+
+menu() {
+  printf "\n%s  ──  MENU LEXOS  ──%s\n\n" "$O" "$R"
+  printf "   %s1%s  💬 Parler à l'IA\n"          "$O" "$R"
+  printf "   %s2%s  🛠️  Outils d'audit (Kali)\n"  "$O" "$R"
+  printf "   %s3%s  🧩 Modèles IA\n"             "$O" "$R"
+  printf "   %s4%s  🎨 Couleurs\n"               "$O" "$R"
+  printf "   %s5%s  🔄 Mise à jour\n"            "$O" "$R"
+  printf "   %s6%s  🤖 Installer / démarrer l'IA\n" "$O" "$R"
+  printf "   %s0%s  ⌨️  Mode libre — taper une commande\n" "$O" "$R"
+}
+
+while :; do
+  clear 2>/dev/null
+  header
+  menu
+  printf "\n%slexos ❯%s ton choix (0-6) : " "$O" "$R"
+  read -r c || break
+  case "$c" in
+    1) lexos parler ;;
+    2) lexos outils ;;
+    3) lexos modeles ;;
+    4) lexos couleurs ;;
+    5) lexos maj ;;
+    6) lexos ia ;;
+    0|q|quit|exit|"") break ;;
+    *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1; continue ;;
+  esac
+  printf "\n%s— Entrée = retour au menu · 0 = mode libre —%s " "$GR" "$R"
+  read -r back || break
+  case "$back" in 0|q|quit|exit) break ;; esac
+done

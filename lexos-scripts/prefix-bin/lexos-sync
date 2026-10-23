@@ -1,0 +1,37 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =============================================================================
+#  lexos-sync — met à jour TOUS les scripts/outils LexOS depuis GitHub.
+#  Récupère la dernière version du dépôt et relance install.sh.
+#  Appelé automatiquement par « lexos maj ».
+#
+#  Utilise un dossier miroir séparé (~/.lexos/repo) pour NE PAS toucher
+#  à ton clone de travail (~/Terminal-LexOS-pro-apk) ni à ton git.
+# =============================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; D=$'\e[2m'; R=$'\e[0m'; RED=$'\e[1;31m'
+
+REPO_URL="https://github.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk"
+BRANCH="ccr-290bfce8-4waano"
+DIR="$HOME/.lexos/repo"
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "${D}Installation de git…${R}"
+  pkg install -y git || { echo "${RED}Impossible d'installer git.${R}"; exit 1; }
+fi
+
+echo "${B}❯_ LexOS${R} ${D}Mise à jour des scripts depuis GitHub…${R}"
+mkdir -p "$HOME/.lexos"
+
+if [ -d "$DIR/.git" ]; then
+  git -C "$DIR" fetch --depth 1 origin "$BRANCH" \
+    && git -C "$DIR" reset --hard FETCH_HEAD >/dev/null 2>&1 \
+    || { echo "${RED}Échec de la mise à jour (réseau ?).${R}"; exit 1; }
+else
+  rm -rf "$DIR"
+  git clone --depth 1 -b "$BRANCH" "$REPO_URL" "$DIR" \
+    || { echo "${RED}Échec du clonage (réseau ?).${R}"; exit 1; }
+fi
+
+# Réinstalle tout (scripts -> ~/bin + $PREFIX/bin, thème, bannière, outils)
+bash "$DIR/lexos-scripts/install.sh"
+echo "${G}Scripts LexOS à jour ✅${R}"
