@@ -1,4 +1,125 @@
 #!/data/data/com.termux/files/usr/bin/bash
-fix_dns(){ nethunter -r sh -c "printf 'nameserver 8.8.8.8\n' > /etc/resolv.conf" 2>/dev/null; }
-if [ "$1" = "-r" ] || [ "$1" = "root" ]; then shift; fix_dns; exec nethunter -r "$@"; fi
-exec nethunter "$@"
+# kali — Kali Linux dans LexOS Pro (sans root, via proot-distro)
+#   kali                  → entrer dans Kali (l'installe au premier lancement)
+#   kali -r <outil> ...   → lancer un outil dans Kali (utilisé par les ponts nmap, sqlmap, hydra…)
+#   kali -- <commande>    → idem
+#   kali installer        → (ré)installer Kali
+#   kali outils           → installer les outils de base
+#   kali outils complet   → installer TOUS les outils (kali-linux-headless, plusieurs Go)
+#   kali outils msf       → installer Metasploit (gros)
+#   kali maj              → mettre Kali à jour
+#   kali francais         → Kali en français
+#   kali diagnostic       → vérifie proot-distro, Internet, espace disque
+# Si NetHunter (root) est installé, il reste utilisé.
+set -uo pipefail
+
+NOM="kali"
+IMAGE="kalilinux/kali-rolling"
+# Le miroir que choisit http.kali.org est parfois injoignable depuis un téléphone
+# (« Unable to connect to mirror… ») : on fixe un miroir qui répond.
+MIROIR="http://kali.download/kali/"
+OUTILS_BASE="nmap sqlmap hydra nikto john netcat-traditional whois dnsutils curl wget git \
+gobuster dnsrecon commix wafw00f masscan medusa theharvester exploitdb"
+
+lime='\033[1;38;2;50;255;0m'; jaune='\033[1;33m'; rouge='\033[1;31m'; blanc='\033[0;97m'; fin='\033[0m'
+
+# NetHunter (root) : comportement d'origine.
+if command -v nethunter >/dev/null 2>&1; then
+  fix_dns() { nethunter -r sh -c "printf 'nameserver 8.8.8.8\n' > /etc/resolv.conf" 2>/dev/null; }
+  if [ "${1:-}" = "-r" ] || [ "${1:-}" = "root" ]; then shift; fix_dns; exec nethunter -r "$@"; fi
+  exec nethunter "$@"
+fi
+
+en_proot() {
+  grep -qi '^ID=kali' /etc/os-release 2>/dev/null && return 0
+  [ -n "${PROOT_TMP_DIR:-}${PROOT_L2S_DIR:-}${PROOT_NO_SECCOMP:-}" ] && return 0
+  return 1
+}
+
+kali_installe() {
+  en_proot && return 1
+  command -v proot-distro >/dev/null 2>&1 && proot-distro login "$NOM" -- true >/dev/null 2>&1
+}
+
+dans_kali() { proot-distro login --shared-tmp "$NOM" -- "$@"; }
+
+miroir_kali() {
+  dans_kali bash -c "sed -i 's#^URIs: .*#URIs: $MIROIR#' /etc/apt/sources.list.d/kali.sources" >/dev/null 2>&1 || true
+}
+
+diagnostic() {
+  echo -e "${blanc}• proot-distro :${fin} $(command -v proot-distro >/dev/null 2>&1 && echo présent || echo ABSENT)"
+  echo -e "${blanc}• Espace libre :${fin} $(df -h "$HOME" 2>/dev/null | awk 'NR==2{print $4}')"
+  if curl -fsI --max-time 8 "${MIROIR}dists/kali-rolling/InRelease" >/dev/null 2>&1; then
+    echo -e "${blanc}• Miroir Kali ($MIROIR) :${fin} OK"
+  else
+    echo -e "${blanc}• Miroir Kali ($MIROIR) :${fin} ${rouge}injoignable${fin} (Wi-Fi ? données mobiles ?)"
+  fi
+  echo -e "${blanc}• Kali installé :${fin} $(kali_installe && echo oui || echo non)"
+}
+
+installer_outils() {
+  kali_installe || { echo -e "${rouge}✖ Installez d'abord Kali : kali installer${fin}"; return 1; }
+  miroir_kali
+  case "${1:-}" in
+    complet) echo -e "${lime}➜ Tous les outils Kali (kali-linux-headless, plusieurs Go)…${fin}"
+             dans_kali bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y kali-linux-headless; apt-get clean' ;;
+    msf)     echo -e "${lime}➜ Metasploit…${fin}"
+             dans_kali bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y metasploit-framework; apt-get clean' ;;
+    *)       echo -e "${lime}➜ Outils de base : $OUTILS_BASE${fin}"
+             # un paquet absent ne bloque pas les autres
+             dans_kali bash -c "export DEBIAN_FRONTEND=noninteractive; apt-get update
+               apt-get install -y $OUTILS_BASE || for p in $OUTILS_BASE; do apt-get install -y \$p || echo \"(ignoré : \$p)\"; done
+               apt-get clean" ;;
+  esac && echo -e "${lime}✔ Outils installés.${fin}" \
+       || echo -e "${jaune}➜ Certains outils n'ont pas pu être installés. Réessayez : kali outils${fin}"
+}
+
+installer() {
+  echo -e "${lime}🐉 Installation de Kali Linux ($IMAGE)${fin}"
+  echo -e "${jaune}   Wi-Fi conseillé.${fin}"
+  pkg install -y proot-distro >/dev/null 2>&1 || true
+  command -v proot-distro >/dev/null 2>&1 || { echo -e "${rouge}✖ Installez proot-distro : pkg install proot-distro${fin}"; return 1; }
+  if ! kali_installe; then
+    proot-distro install --name "$NOM" "$IMAGE" || { echo -e "${rouge}✖ Téléchargement échoué.${fin}"; diagnostic; return 1; }
+  fi
+  miroir_kali
+  dans_kali bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends sudo nano less ca-certificates; apt-get clean' || true
+  installer_outils
+  echo -e "${lime}✔ Kali est prêt : tapez  kali${fin}   (« exit » pour revenir au terminal Android)"
+}
+
+francais_kali() {
+  dans_kali bash -c '
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update >/dev/null 2>&1; apt-get install -y --no-install-recommends locales >/dev/null 2>&1
+    sed -i "s/^# *fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/" /etc/locale.gen
+    grep -q "^fr_FR.UTF-8 UTF-8" /etc/locale.gen || echo "fr_FR.UTF-8 UTF-8" >> /etc/locale.gen
+    locale-gen >/dev/null 2>&1
+    grep -q "lexos-francais" /root/.bashrc 2>/dev/null || printf "\n# lexos-francais\nexport LANG=fr_FR.UTF-8 LC_ALL=fr_FR.UTF-8 LANGUAGE=fr_FR:fr\n" >> /root/.bashrc
+  ' && echo -e "${lime}✔ Kali en français (nouvelle session).${fin}"
+}
+
+case "${1:-}" in
+  installer) installer ;;
+  outils) installer_outils "${2:-}" ;;
+  maj) kali_installe || installer || exit 1
+       miroir_kali
+       dans_kali bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get full-upgrade -y' ;;
+  francais|français) kali_installe || installer || exit 1; francais_kali ;;
+  diagnostic|diag) diagnostic ;;
+  -r|root|--)
+    shift
+    [ "$#" -gt 0 ] || { echo "Usage : kali -r <commande> [arguments]"; exit 1; }
+    en_proot && exec "$@"
+    kali_installe || installer || exit 1
+    exec proot-distro login --shared-tmp "$NOM" -- "$@" ;;
+  -h|--help|aide) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+  "")
+    if en_proot; then
+      echo -e "${lime}🐉 Vous êtes déjà dans Kali.${fin} (tapez ${blanc}exit${fin} pour revenir au terminal Android)"; exit 0
+    fi
+    kali_installe || installer || exit 1
+    exec proot-distro login --shared-tmp "$NOM" ;;
+  *) echo -e "${rouge}✖ Commande inconnue : $1${fin} (voir « kali aide »)"; exit 1 ;;
+esac
