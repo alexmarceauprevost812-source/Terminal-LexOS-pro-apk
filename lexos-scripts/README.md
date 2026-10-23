@@ -105,3 +105,18 @@ Ensuite : tape `lexos` pour démarrer.
 ### Image en haut du terminal (bannière)
 - `prefix-bin/lexos-banniere` — affiche l'image (via `chafa`) + le titre en haut du terminal.
   `install.sh` l'ajoute à `~/.bashrc` pour qu'elle apparaisse à chaque ouverture (une fois par session).
+
+## Kali Linux (sans root)
+
+La commande `kali` ouvre un vrai Kali Linux dans LexOS Pro, via `proot-distro` (pas besoin de root).
+Au premier lancement elle installe Kali et les outils de base.
+
+    kali                  entrer dans Kali  (exit pour revenir)
+    kali outils           installer les outils de base (nmap, sqlmap, hydra, nikto, john…)
+    kali outils complet   tous les outils Kali (plusieurs Go)
+    kali outils msf       Metasploit
+    kali -r nmap -h       lancer un outil sans ouvrir Kali (c'est ce que font les ponts nmap, sqlmap…)
+    kali diagnostic       vérifie proot-distro, le miroir et l'espace libre
+
+Le miroir est fixé sur `kali.download` : celui que choisit `http.kali.org` est parfois injoignable
+depuis un téléphone, et aucun outil ne s'installe. Si NetHunter (root) est installé, il reste utilisé.
