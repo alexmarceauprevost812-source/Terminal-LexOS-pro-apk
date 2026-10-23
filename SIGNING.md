@@ -31,6 +31,28 @@ base64 -i lexos-release.keystore
 
 Copie toute la ligne produite.
 
+### Depuis Windows (PowerShell)
+
+Si ta clé est déjà sur un PC Windows, ouvre **PowerShell** dans le dossier du
+keystore :
+
+```powershell
+# 1) Encoder la clé en base64 (va dans LEXOS_KEYSTORE_B64)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("lexos-release.keystore")) | Set-Clipboard
+#   -> la valeur est copiée dans le presse-papier, colle-la dans le secret.
+#   (ou, sans presse-papier :)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("lexos-release.keystore")) > keystore.b64.txt
+
+# 2) Retrouver l'alias et vérifier la clé (keytool est fourni avec Java/Android Studio)
+keytool -list -v -keystore lexos-release.keystore
+#   -> cherche la ligne « Alias name: ... » = LEXOS_KEY_ALIAS
+```
+
+> 💡 Si c'est la clé qui a **déjà signé l'app installée sur ton téléphone**,
+> une fois les secrets en place les mises à jour s'installeront **sans
+> désinstaller** (même signature). Si c'est une **nouvelle** clé, il faudra
+> désinstaller l'app une fois (étape 5).
+
 ## 2. Créer les Secrets GitHub
 
 Dépôt → **Settings → Secrets and variables → Actions → New repository secret**.

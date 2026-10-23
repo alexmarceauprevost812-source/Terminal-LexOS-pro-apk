@@ -52,7 +52,9 @@ jobs:
             echo "Keystore release (secret) prêt -> build signé release."
           else
             echo "signed=0" >> "$GITHUB_OUTPUT"
-            echo "::warning::Secret LEXOS_KEYSTORE_B64 absent -> build debug. Ajoute les secrets pour une vraie clé release stable (voir SIGNING.md)."
+            echo "Pas de secret : build debug signé avec la clé de test stable intégrée"
+            echo "(signature identique à chaque build -> les mises à jour s'installent par-dessus)."
+            echo "Pour ta propre clé (ex. depuis Windows), voir SIGNING.md."
           fi
 
       - name: Numéro de version (monte à chaque build)
