@@ -35,16 +35,34 @@ jobs:
           git clone --no-single-branch "${{ steps.cfg.outputs.TERMUX_REPO }}" termux-app
           git -C termux-app checkout "${{ steps.cfg.outputs.TERMUX_REF }}"
 
-      - name: Poser l'interface LexOS par-dessus
+      - name: Poser l'interface LexOS (+ patch signature / versionCode)
         env:
           LEXOS_APP_NAME: ${{ steps.cfg.outputs.LEXOS_APP_NAME }}
         run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
 
-      - name: Clé de signature stable (pour que les mises à jour s'installent)
+      - name: Préparer le keystore de signature
+        id: keystore
+        env:
+          LEXOS_KEYSTORE_B64: ${{ secrets.LEXOS_KEYSTORE_B64 }}
         run: |
-          mkdir -p "$HOME/.android"
-          cp "$GITHUB_WORKSPACE/lexos/keystore/lexos-debug.keystore" "$HOME/.android/debug.keystore"
-          echo "Clé de debug fixe installée -> signature identique à chaque build."
+          if [ -n "$LEXOS_KEYSTORE_B64" ]; then
+            printf '%s' "$LEXOS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/lexos-release.keystore"
+            echo "store=$RUNNER_TEMP/lexos-release.keystore" >> "$GITHUB_OUTPUT"
+            echo "signed=1" >> "$GITHUB_OUTPUT"
+            echo "Keystore release (secret) prêt -> build signé release."
+          else
+            echo "signed=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret LEXOS_KEYSTORE_B64 absent -> build debug. Ajoute les secrets pour une vraie clé release stable (voir SIGNING.md)."
+          fi
+
+      - name: Numéro de version (monte à chaque build)
+        id: vc
+        run: |
+          CODE=$((10000 + ${{ github.run_number }}))
+          NAME="0.118.${{ github.run_number }}"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$CODE  versionName=$NAME"
 
       - name: JDK 21
         uses: actions/setup-java@v4
@@ -65,25 +83,42 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK"     >> "$GITHUB_ENV"
 
-      - name: Compiler l'APK (debug)
+      - name: Compiler l'APK (release signé si secret présent, sinon debug)
         working-directory: termux-app
+        env:
+          LEXOS_STORE_FILE: ${{ steps.keystore.outputs.store }}
+          LEXOS_STORE_PASSWORD: ${{ secrets.LEXOS_KEYSTORE_PASSWORD }}
+          LEXOS_KEY_ALIAS: ${{ secrets.LEXOS_KEY_ALIAS }}
+          LEXOS_KEY_PASSWORD: ${{ secrets.LEXOS_KEY_PASSWORD }}
+          LEXOS_VERSION_CODE: ${{ steps.vc.outputs.code }}
+          TERMUX_APP_VERSION_NAME: ${{ steps.vc.outputs.name }}
+          TERMUX_APK_VERSION_TAG: lexos-${{ steps.vc.outputs.name }}
+          TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS: "0"
+          TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: "0"
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          if [ "${{ steps.keystore.outputs.signed }}" = "1" ]; then
+            ./gradlew assembleRelease --stacktrace --no-daemon
+          else
+            ./gradlew assembleDebug --stacktrace --no-daemon
+          fi
 
-      - name: Repérer l'APK produit
+      - name: Repérer l'APK produit (universal / arm64)
         id: apk
         run: |
-          APK=$(find termux-app/app/build/outputs/apk/debug -name '*.apk' | head -n1)
+          APK=$(find termux-app/app/build/outputs/apk -name '*universal*.apk' | head -n1)
+          [ -z "$APK" ] && APK=$(find termux-app/app/build/outputs/apk -name '*arm64*.apk' | head -n1)
+          [ -z "$APK" ] && APK=$(find termux-app/app/build/outputs/apk -name '*.apk' | head -n1)
+          test -n "$APK" || { echo "Aucun APK trouvé"; exit 1; }
           echo "Trouvé : $APK"
-          cp "$APK" "LexOS-Pro-debug.apk"
-          echo "path=LexOS-Pro-debug.apk" >> "$GITHUB_OUTPUT"
+          cp "$APK" "LexOS-Pro.apk"
+          echo "path=LexOS-Pro.apk" >> "$GITHUB_OUTPUT"
 
       - name: Publier l'APK en artifact (téléchargeable depuis cette exécution)
         uses: actions/upload-artifact@v4
         with:
           name: LexOS-Pro-APK
-          path: LexOS-Pro-debug.apk
+          path: LexOS-Pro.apk
           if-no-files-found: error
 
       - name: Publier la Release « latest » (mises à jour)
@@ -93,8 +128,10 @@ jobs:
           tag_name: latest
           name: LexOS Pro — dernière compilation
           body: |
-            APK de LexOS Pro (debug) compilé automatiquement.
+            APK de LexOS Pro compilé automatiquement.
+            versionName ${{ steps.vc.outputs.name }} · versionCode ${{ steps.vc.outputs.code }}
+            Signature : ${{ steps.keystore.outputs.signed == '1' && 'clé release (secret)' || 'clé debug (ajoute les secrets, voir SIGNING.md)' }}
             Moteur Termux figé : ${{ steps.cfg.outputs.TERMUX_REF }}
             Build #${{ github.run_number }} — commit ${{ github.sha }}
-          files: LexOS-Pro-debug.apk
+          files: LexOS-Pro.apk
           make_latest: true
