@@ -1,0 +1,19 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-couleurs — installe les outils de couleur d'un coup
+#    bat  : "cat" coloré (coloration syntaxique des fichiers/code)
+#    eza  : "ls" coloré avec icônes
+#    blesh: coloration de la ligne de commande PENDANT que tu tapes
+# =====================================================================
+set -u
+B=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; D=$'\e[2m'; R=$'\e[0m'
+
+echo "${B}❯_ LexOS${R} Installation des couleurs…"
+pkg install -y bat eza chafa || true
+if pkg install -y blesh 2>/dev/null; then
+    echo "${G}blesh installé${R} (coloration en direct quand tu tapes)."
+else
+    echo "${D}blesh pas dans les dépôts — on garde bat + eza (déjà beaucoup de couleur).${R}"
+fi
+echo ""
+echo "${G}Fait !${R} Recharge pour activer :  ${B}source ~/.bashrc${R}  ${D}(ou rouvre un onglet)${R}"

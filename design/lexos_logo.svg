@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="40%" r="58%">
+      <stop offset="0%" stop-color="#F87800" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#F87800" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#F87800" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFC266"/>
+      <stop offset="45%" stop-color="#F87800"/>
+      <stop offset="100%" stop-color="#A84A00"/>
+    </linearGradient>
+    <radialGradient id="eye" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#9FE8FF"/>
+      <stop offset="100%" stop-color="#2CC8FF"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="eyeglow" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="226" r="226" fill="url(#glow)"/>
+
+  <!-- capuche pointue : silhouette pleine -->
+  <path id="hood" d="M256 56
+           C206 62 160 104 134 180
+           C112 244 120 330 150 432
+           L362 432
+           C392 330 400 244 378 180
+           C352 104 306 62 256 56 Z"
+        fill="#0C0C0C"/>
+  <use href="#hood" fill="none" stroke="url(#rim)" stroke-width="13" stroke-linejoin="round" filter="url(#soft)"/>
+  <use href="#hood" fill="none" stroke="url(#rim)" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- ouverture du visage (ombre drapée) -->
+  <path id="face" d="M256 150
+           C216 152 196 190 192 240
+           C188 288 202 338 222 388
+           L290 388
+           C310 338 324 288 320 240
+           C316 190 296 152 256 150 Z"
+        fill="#050505"/>
+  <use href="#face" fill="none" stroke="#F87800" stroke-width="4" stroke-opacity="0.75" stroke-linejoin="round"/>
+
+  <!-- yeux lumineux agressifs (en biais) -->
+  <g filter="url(#eyeglow)">
+    <path d="M206 232 L250 250 L250 268 L210 258 Z" fill="url(#eye)"/>
+    <path d="M306 232 L262 250 L262 268 L302 258 Z" fill="url(#eye)"/>
+  </g>
+  <path d="M210 236 L247 251 L247 264 L214 256 Z" fill="#F2FDFF"/>
+  <path d="M302 236 L265 251 L265 264 L298 256 Z" fill="#F2FDFF"/>
+</svg>

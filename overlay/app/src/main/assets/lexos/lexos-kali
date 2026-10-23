@@ -1,0 +1,33 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-kali — installe Kali NetHunter (sans root) dans LexOS/Termux.
+#  Menu → « Installer Kali ».  Installateur officiel Offensive Security.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; RED=$'\e[1;31m'; D=$'\e[2m'; R=$'\e[0m'
+
+if command -v nethunter >/dev/null 2>&1; then
+    echo "${G}Kali NetHunter est déjà installé ✅${R}"
+    echo "${D}Entrer dans Kali : ${R}${O}kali${R}${D}  (root : ${R}${O}kali -r${R}${D})${R}"
+    echo "${D}Les outils d'audit : ${R}${O}lexos outils${R}"
+    exit 0
+fi
+
+echo "${O}❯_ LexOS${R} Installation de Kali NetHunter (sans root)…"
+echo "${D}Ça télécharge le système Kali. L'installateur te demandera quelle"
+echo "variante (Full / Minimal / Nano). Minimal suffit pour la plupart des outils.${R}"
+echo ""
+
+command -v wget >/dev/null 2>&1 || pkg install -y wget || { echo "${RED}Échec installation wget.${R}"; exit 1; }
+
+INST="$HOME/install-nethunter-termux"
+wget -O "$INST" https://offs.ec/2MceZWr || { echo "${RED}Téléchargement de l'installateur échoué (réseau ?).${R}"; exit 1; }
+chmod +x "$INST"
+"$INST" || { echo "${RED}L'installation de NetHunter a échoué.${R}"; exit 1; }
+
+echo ""
+echo "${G}Kali NetHunter installé ✅${R}"
+echo "${D}1) Entre dans Kali en root : ${R}${O}kali -r${R}"
+echo "${D}2) Dans Kali, installe les outils :${R}"
+echo "     apt update && apt install -y kali-tools-top10"
+echo "${D}3) Reviens à LexOS (tape ${R}exit${D}) puis ouvre le ${R}${O}Catalogue${R}${D} (menu → Catalogue outils).${R}"
