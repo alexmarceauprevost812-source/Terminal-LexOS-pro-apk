@@ -25,7 +25,9 @@ case "${1:-}" in
         exec lexos-modeles ;;
     couleurs|couleur|color)
         exec lexos-couleurs ;;
-    ""|-h|--help|aide-moi)
+    "")
+        exec lexos-menu ;;
+    -h|--help|aide-moi)
         echo "${B}lexos${R} — raccourcis LexOS Pro"
         echo "  ${B}lexos menu${R}       ouvrir le menu d'accueil (1 à 6)"
         echo "  ${B}lexos ia${R}         installer / démarrer l'IA locale"

@@ -81,6 +81,13 @@ if [ -f "$HERE/assets/menu-gauche.png" ]; then
   ok "icône LexOS copiée"
 fi
 
+# Bannière TI-LEX + avatar -> ~/.lexos (affichés par le menu et par « lex »).
+# Installés seulement s'ils sont présents dans le dépôt (sinon on garde les tiens).
+mkdir -p "$HOME/.lexos"
+for b in banner.png banner.txt avatar.png; do
+  [ -f "$HERE/assets/$b" ] && cp "$HERE/assets/$b" "$HOME/.lexos/$b" && ok "$b installé (~/.lexos)"
+done
+
 # 7. Menu d'accueil à l'ouverture du terminal (remplace tout ancien hook)
 if [ -f "$HOME/.bashrc" ]; then
   # Nettoie l'ancien bloc (style marqueurs) et l'ancien bloc bannière.

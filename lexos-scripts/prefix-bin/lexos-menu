@@ -15,7 +15,7 @@ PFX="${PREFIX:-/data/data/com.termux/files/usr}"
 header() {
   local cols; cols=$(tput cols 2>/dev/null || echo 44); [ "$cols" -gt 54 ] && cols=54
   if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/banner.png" ]; then
-    chafa --size="${cols}x" "$HOME/.lexos/banner.png" 2>/dev/null
+    chafa --center on --size="${cols}x" "$HOME/.lexos/banner.png" 2>/dev/null
   elif [ -f "$HOME/.lexos/banner.txt" ]; then
     cat "$HOME/.lexos/banner.txt"
   elif command -v lexos-banniere >/dev/null 2>&1; then
