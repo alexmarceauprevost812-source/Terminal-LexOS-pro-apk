@@ -52,11 +52,14 @@ __lexos_ps1() {
 PROMPT_COMMAND=__lexos_ps1
 
 # ---- Accueil (une fois par session, en interactif) — texte propre, sans image ----
-if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 1 ]; then
+if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 0 ] && [ -t 1 ]; then
     export LEXOS_MOTD_SHOWN=1
-    printf '\e[1;38;2;248;120;0m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'
-    printf '\e[2mTape\e[0m \e[1;38;2;248;120;0maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
-    printf '\e[2mEx :\e[0m aide comment installer python   \e[2m·  maj :\e[0m lexos maj\n\n'
+    if command -v lexos-menu >/dev/null 2>&1; then
+        lexos-menu
+    else
+        printf '\e[1;38;2;248;120;0m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'
+        printf '\e[2mTape\e[0m \e[1;38;2;248;120;0maide <ta question>\e[0m \e[2mpour que l'\''IA locale te guide.\e[0m\n'
+    fi
 fi
 
 # Active blesh à la fin (coloration en direct)

@@ -1,0 +1,59 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-menu — menu d'accueil LexOS (image + choix 1 à 4).
+#  Affiché à l'ouverture (via ~/.lexos/lexos.sh) et avec « lexos » ou
+#  « lexos menu ».
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'     # orange LexOS
+G=$'\e[38;2;118;185;0m'       # vert lime
+GR=$'\e[2m'                   # atténué
+RED=$'\e[1;31m'               # rouge
+R=$'\e[0m'
+
+# En-tête : image (capuche) centrée + sous-titre.
+header() {
+  local cols img=""
+  cols=$(tput cols 2>/dev/null || echo 44); [ "$cols" -gt 46 ] && cols=46
+  for c in "$HOME/.lexos/menu-gauche.png" "$HOME/.lexos/banner.png"; do
+    [ -f "$c" ] && img="$c" && break
+  done
+  if command -v chafa >/dev/null 2>&1 && [ -n "$img" ]; then
+    chafa --center on --size="${cols}x$((cols/2))" "$img" 2>/dev/null
+  fi
+  printf "%s❯_ LexOS Pro%s %s· terminal québécois%s\n" "$O" "$R" "$GR" "$R"
+}
+
+# Terminal non interactif : juste l'en-tête, pas de menu.
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  header
+  exit 0
+fi
+
+menu() {
+  printf "\n%s  ──  MENU LEXOS  ──%s\n\n" "$O" "$R"
+  printf "   %s1%s  💬 Parler à l'IA\n"             "$O" "$R"
+  printf "   %s2%s  🎨 Couleurs\n"                  "$O" "$R"
+  printf "   %s3%s  🔄 Mise à jour\n"               "$O" "$R"
+  printf "   %s4%s  🤖 Installer / démarrer l'IA\n" "$O" "$R"
+  printf "   %s0%s  ⌨️  Mode libre (taper une commande)\n" "$O" "$R"
+}
+
+while :; do
+  clear 2>/dev/null
+  header
+  menu
+  printf "\n%slexos ❯%s ton choix (0-4) : " "$O" "$R"
+  read -r c || break
+  case "$c" in
+    1) lexos parler ;;
+    2) lexos couleurs ;;
+    3) lexos maj ;;
+    4) lexos ia ;;
+    0|q|quit|exit|"") break ;;
+    *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1; continue ;;
+  esac
+  printf "\n%s— Entrée = retour au menu · 0 = mode libre —%s " "$GR" "$R"
+  read -r back || break
+  case "$back" in 0|q|quit|exit) break ;; esac
+done
