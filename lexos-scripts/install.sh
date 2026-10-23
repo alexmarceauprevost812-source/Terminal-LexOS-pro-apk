@@ -39,8 +39,12 @@ if [ -d "$HERE/home-bin" ]; then
   for f in "$HERE"/home-bin/*; do
     [ -e "$f" ] || continue
     b=$(basename "$f")
-    [ -e "$BIN/$b" ] && ! cmp -s "$f" "$BIN/$b" && cp "$BIN/$b" "$BIN/$b.bak" && skip "ancien ~/bin/$b → $b.bak"
-    cp "$f" "$BIN/$b" && chmod +x "$BIN/$b" && ok "~/bin/$b"
+    [ -e "$BIN/$b" ] && ! cmp -s "$f" "$BIN/$b" && cp "$BIN/$b" "$BIN/$b.bak"
+    cp "$f" "$BIN/$b" && chmod +x "$BIN/$b"
+    # Aussi dans $PREFIX/bin (toujours dans le PATH) pour remplacer une
+    # version intégrée à l'appli LexOS qui passerait avant ~/bin.
+    [ -e "$PFX/bin/$b" ] && ! cmp -s "$f" "$PFX/bin/$b" && cp "$PFX/bin/$b" "$PFX/bin/$b.bak"
+    cp "$f" "$PFX/bin/$b" && chmod +x "$PFX/bin/$b" && ok "$b (~/bin + \$PREFIX/bin)"
   done
 fi
 
