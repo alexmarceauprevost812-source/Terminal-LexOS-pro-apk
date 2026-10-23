@@ -19,6 +19,12 @@ case "${1:-}" in
         shift; exec aide "$@" ;;
     couleurs|couleur|color)
         exec lexos-couleurs ;;
+    outils|outil|catalogue|tools)
+        exec catalogue ;;
+    kali-install|installer-kali|install-kali)
+        exec lexos-kali ;;
+    kali|nethunter)
+        shift; exec kali "$@" ;;
     "")
         exec lexos-menu ;;
     -h|--help|aide-moi)
@@ -28,6 +34,8 @@ case "${1:-}" in
         echo "  ${B}lexos parler${R}     parler à l'IA (le codex)"
         echo "  ${B}lexos maj${R}        mettre à jour l'application"
         echo "  ${B}lexos couleurs${R}   activer toutes les couleurs"
+        echo "  ${B}lexos kali${R}       installer / entrer dans Kali"
+        echo "  ${B}lexos outils${R}     catalogue des outils d'audit"
         echo "${D}(tu peux aussi écrire : lexos mise à jour)${R}" ;;
     *)
         echo "Commande inconnue : ${1}"

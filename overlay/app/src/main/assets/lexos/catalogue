@@ -1,0 +1,76 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  catalogue — menu des outils d'audit Kali (lancés via « kali -r »).
+#  Menu → « Catalogue outils ».
+#  ⚠️ Usage autorisé uniquement : tes propres cibles ou autorisation.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; RED=$'\e[1;38;2;255;77;109m'; D=$'\e[2m'; R=$'\e[0m'
+export DIALOGRC="${DIALOGRC:-$HOME/.lexos/dialogrc}"
+
+if ! command -v nethunter >/dev/null 2>&1; then
+    echo "${RED}Kali n'est pas installé.${R} Installe-le d'abord : ${O}lexos kali${R}"
+    echo "${D}(ou menu d'accueil → Installer Kali)${R}"
+    exit 1
+fi
+
+# Lance un outil dans Kali (root), puis attend avant de revenir au menu.
+launch() {
+    local t=$1
+    [ "$t" = metasploit ] && t=msfconsole   # la commande réelle
+    clear
+    echo "${O}▶ $t${R}  ${D}(dans Kali, root)${R}"
+    kali -r "$t"
+    printf '\n%s— Appuie sur Entrée pour revenir au catalogue —%s' "$D" "$R"
+    read -r _
+}
+
+# Repli texte si dialog absent.
+menu_texte() {
+    while :; do
+        clear
+        echo "${O}──  CATALOGUE D'AUDIT KALI  ──${R}  ${D}(cibles autorisées uniquement)${R}"
+        echo "  🌐 nmap  masscan  dnsrecon  theHarvester"
+        echo "  🕸️  nikto  sqlmap  wpscan  gobuster  dirbuster  nuclei  wafw00f  commix"
+        echo "  🔐 hydra  medusa      📡 wifite  reaver      🕵️ ettercap"
+        echo "  🎯 searchsploit  metasploit"
+        printf '%soutil (nom, ou q pour quitter)%s ❯ ' "$O" "$R"
+        read -r t || break
+        [ -z "$t" ] || [ "$t" = q ] && break
+        launch "$t"
+    done
+}
+
+if ! command -v dialog >/dev/null 2>&1; then
+    echo "${D}(dialog absent — menu texte. Pour le beau menu : pkg install -y dialog)${R}"
+    sleep 1; menu_texte; exit 0
+fi
+
+while :; do
+    choix=$(dialog --clear --stdout \
+        --backtitle "LexOS · Catalogue d'audit (cibles autorisées uniquement)" \
+        --title " OUTILS KALI " \
+        --menu "Choisis un outil :" 0 0 0 \
+            nmap         "🌐 Scan réseau / ports" \
+            masscan      "🌐 Scan massif de ports" \
+            dnsrecon     "🌐 Reconnaissance DNS" \
+            theHarvester "🌐 OSINT emails / sous-domaines" \
+            nikto        "🕸️  Scan serveur web" \
+            sqlmap       "🕸️  Injection SQL" \
+            wpscan       "🕸️  Audit WordPress" \
+            gobuster     "🕸️  Brute force répertoires / DNS" \
+            dirbuster    "🕸️  Brute force répertoires" \
+            nuclei       "🕸️  Scan de vulnérabilités" \
+            wafw00f      "🕸️  Détection de WAF" \
+            commix       "🕸️  Injection de commandes" \
+            hydra        "🔐 Brute force identifiants" \
+            medusa       "🔐 Brute force identifiants" \
+            wifite       "📡 Audit WiFi automatique" \
+            reaver       "📡 Audit WPS" \
+            ettercap     "🕵️  MITM réseau local" \
+            searchsploit "🎯 Recherche d'exploits (offline)" \
+            metasploit   "🎯 Framework Metasploit")
+    [ -z "${choix:-}" ] && break
+    launch "$choix"
+done
+clear

@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  kali — entre dans Kali NetHunter.   kali -r = root (corrige le DNS).
+#  Pas encore installé ? -> lexos kali  (ou menu → Installer Kali).
+# =====================================================================
+if ! command -v nethunter >/dev/null 2>&1; then
+    O=$'\e[1;38;2;248;120;0m'; R=$'\e[0m'
+    echo "Kali n'est pas installé. Installe-le : ${O}lexos kali${R}" >&2
+    exit 1
+fi
+
+fix_dns() { nethunter -r sh -c "printf 'nameserver 8.8.8.8\n' > /etc/resolv.conf" 2>/dev/null; }
+
+if [ "${1:-}" = "-r" ] || [ "${1:-}" = "root" ]; then
+    shift; fix_dns; exec nethunter -r "$@"
+fi
+exec nethunter "$@"
