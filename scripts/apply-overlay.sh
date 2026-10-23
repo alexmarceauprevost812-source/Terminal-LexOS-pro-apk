@@ -24,7 +24,7 @@ patch_build_gradle() {
     echo "==> Patch signature & versionCode dans app/build.gradle"
 
     if grep -qE 'versionCode[[:space:]]+[0-9]+' "$BG"; then
-        perl -0pi -e 's/versionCode\s+\d+/versionCode (System.getenv("LEXOS_VERSION_CODE") ?: "118").toInteger()/' "$BG"
+        perl -0pi -e 's/versionCode\s+\d+/versionCode Integer.parseInt(System.getenv("LEXOS_VERSION_CODE") ?: "118")/' "$BG"
         echo "    versionCode -> LEXOS_VERSION_CODE"
     fi
 
