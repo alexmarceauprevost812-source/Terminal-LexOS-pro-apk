@@ -15,7 +15,10 @@ command -v bat >/dev/null 2>&1 && alias cat='bat -pp'
 command -v eza >/dev/null 2>&1 && alias ls='eza --color=always --icons=auto' && alias ll='eza -lah --color=always --icons=auto'
 
 # Couleurs des fichiers : dossiers/exécutables orange, liens cyan, images rose
-export LS_COLORS='di=1;38;5;208:ln=38;5;80:ex=38;5;214:so=38;5;208:pi=38;5;214:bd=38;5;214:cd=38;5;214:or=38;5;196:*.tar=38;5;208:*.zip=38;5;208:*.gz=38;5;208:*.jpg=38;5;213:*.png=38;5;213:*.jpeg=38;5;213:*.gif=38;5;213:*.mp3=38;5;213:*.mp4=38;5;213:*.pdf=38;5;196:*.md=38;5;80:*.py=38;5;214:*.sh=1;38;5;214:*.json=38;5;80'
+# Fichiers téléchargés (archives / paquets) -> BLEU ; dossiers orange, images rose
+export LS_COLORS='di=1;38;5;208:ln=38;5;80:ex=38;5;214:so=38;5;208:pi=38;5;214:bd=38;5;214:cd=38;5;214:or=38;5;196:*.tar=1;38;5;39:*.tgz=1;38;5;39:*.zip=1;38;5;39:*.gz=1;38;5;39:*.bz2=1;38;5;39:*.xz=1;38;5;39:*.7z=1;38;5;39:*.rar=1;38;5;39:*.iso=1;38;5;39:*.apk=1;38;5;39:*.aab=1;38;5;39:*.deb=1;38;5;39:*.AppImage=1;38;5;39:*.jpg=38;5;213:*.png=38;5;213:*.jpeg=38;5;213:*.gif=38;5;213:*.mp3=38;5;213:*.mp4=38;5;213:*.pdf=38;5;196:*.md=38;5;80:*.py=38;5;214:*.sh=1;38;5;214:*.json=38;5;80'
+# eza utilise sa propre palette : on lui dit aussi de mettre les archives en bleu
+export EZA_COLORS='di=1;38;5;208:*.tar=1;38;5;39:*.tgz=1;38;5;39:*.zip=1;38;5;39:*.gz=1;38;5;39:*.bz2=1;38;5;39:*.xz=1;38;5;39:*.7z=1;38;5;39:*.rar=1;38;5;39:*.iso=1;38;5;39:*.apk=1;38;5;39:*.aab=1;38;5;39:*.deb=1;38;5;39:*.AppImage=1;38;5;39'
 export GREP_COLORS='ms=1;38;5;208'
 # Pages man en couleur (titres orange, mots-clés cyan)
 export LESS_TERMCAP_md=$'\e[1;38;5;208m'
