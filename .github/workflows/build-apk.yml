@@ -40,26 +40,17 @@ jobs:
           LEXOS_APP_NAME: ${{ steps.cfg.outputs.LEXOS_APP_NAME }}
         run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
 
-      - name: Préparer le keystore de signature
-        id: keystore
-        env:
-          LEXOS_KEYSTORE_B64: ${{ secrets.LEXOS_KEYSTORE_B64 }}
+      - name: Clé de signature STABLE (debug)
+        # On compile en DEBUG (le bootstrap Termux n'est préparé que pour debug ;
+        # assembleRelease échoue sur « bootstrap-aarch64.zip »). Mais au lieu de
+        # la clé debug ALÉATOIRE générée par le runner (qui change à chaque build
+        # -> « Appli non installée »), on installe la clé COMMUNE du dépôt comme
+        # ~/.android/debug.keystore -> MÊME signature à chaque build -> les mises
+        # à jour s'installent par-dessus.
         run: |
-          if [ -n "$LEXOS_KEYSTORE_B64" ]; then
-            printf '%s' "$LEXOS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/lexos.keystore"
-            echo "store=$RUNNER_TEMP/lexos.keystore" >> "$GITHUB_OUTPUT"
-            echo "mode=release" >> "$GITHUB_OUTPUT"
-            echo "Clé release (secret) -> build signé release."
-          else
-            # REPLI STABLE : on utilise la clé commune du dépôt (lexos-debug.keystore)
-            # pour que TOUS les builds aient la MÊME signature -> les mises à jour
-            # s'installent par-dessus. (Sans ça, assembleDebug prend une clé au
-            # hasard par build -> « Appli non installée ».)
-            cp "$GITHUB_WORKSPACE/lexos/keystore/lexos-debug.keystore" "$RUNNER_TEMP/lexos.keystore"
-            echo "store=$RUNNER_TEMP/lexos.keystore" >> "$GITHUB_OUTPUT"
-            echo "mode=stable" >> "$GITHUB_OUTPUT"
-            echo "::warning::Pas de secret release -> signé avec la clé stable du dépôt (lexos-debug.keystore). Les mises à jour fonctionnent. Pour une vraie clé release, voir SIGNING.md."
-          fi
+          mkdir -p "$HOME/.android"
+          cp "$GITHUB_WORKSPACE/lexos/keystore/lexos-debug.keystore" "$HOME/.android/debug.keystore"
+          echo "Clé stable installée (~/.android/debug.keystore = lexos-debug.keystore)."
 
       - name: Numéro de version (monte à chaque build)
         id: vc
@@ -89,25 +80,18 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK"     >> "$GITHUB_ENV"
 
-      - name: Compiler l'APK (release signé si secret présent, sinon debug)
+      - name: Compiler l'APK (debug, signé clé stable)
         working-directory: termux-app
         env:
-          LEXOS_STORE_FILE: ${{ steps.keystore.outputs.store }}
-          # Mots de passe : ceux du secret en mode release, sinon ceux de la clé
-          # commune du dépôt (storepass/keypass = android, alias androiddebugkey).
-          LEXOS_STORE_PASSWORD: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEYSTORE_PASSWORD || 'android' }}
-          LEXOS_KEY_ALIAS: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEY_ALIAS || 'androiddebugkey' }}
-          LEXOS_KEY_PASSWORD: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEY_PASSWORD || 'android' }}
           LEXOS_VERSION_CODE: ${{ steps.vc.outputs.code }}
           TERMUX_APP_VERSION_NAME: ${{ steps.vc.outputs.name }}
           TERMUX_APK_VERSION_TAG: lexos-${{ steps.vc.outputs.name }}
-          TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS: "0"
           TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: "0"
         run: |
           chmod +x gradlew
-          # TOUJOURS assembleRelease : signé avec une clé STABLE (secret ou clé
-          # commune du dépôt) -> même signature à chaque build -> mises à jour OK.
-          ./gradlew assembleRelease --stacktrace --no-daemon
+          # Build DEBUG (bootstrap Termux OK) signé avec ~/.android/debug.keystore
+          # = la clé commune stable -> même signature à chaque build.
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Repérer l'APK produit (universal / arm64)
         id: apk
@@ -132,7 +116,7 @@ jobs:
           body: |
             APK de LexOS Pro compilé automatiquement.
             versionName ${{ steps.vc.outputs.name }} · versionCode ${{ steps.vc.outputs.code }}
-            Signature : ${{ steps.keystore.outputs.signed == '1' && 'clé release (secret)' || 'clé debug (ajoute les secrets, voir SIGNING.md)' }}
+            Signature : clé stable du dépôt (lexos-debug.keystore) — mises à jour par-dessus OK
             Moteur Termux figé : ${{ steps.cfg.outputs.TERMUX_REF }}
             Build #${{ github.run_number }} — commit ${{ github.sha }}
           files: LexOS-Pro.apk
