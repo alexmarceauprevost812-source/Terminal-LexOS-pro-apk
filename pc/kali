@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# =====================================================================
+#  kali — ouvre l'invite Kali (conteneur « kali-lexos ») dans le terminal.
+#  Trouve distrobox où qu'il soit (y compris sur la clé USB LexOS Nomad),
+#  sinon se replie sur podman.
+#    kali            -> shell Kali (sortir : exit)
+#    kali <commande> -> lance une commande dans Kali (ex: kali nmap -h)
+# =====================================================================
+set -u
+
+# 1) Trouver distrobox
+DB=""
+for c in distrobox distrobox-enter; do
+  command -v "$c" >/dev/null 2>&1 && { DB="$(command -v "$c")"; break; }
+done
+if [ -z "$DB" ]; then
+  for d in /usr/local/bin /opt/distrobox/bin \
+           /media/*/*/distrobox/bin /run/media/*/*/distrobox/bin \
+           /media/*/* /run/media/*/* ; do
+    [ -x "$d/distrobox" ] && { DB="$d/distrobox"; break; }
+  done
+fi
+
+# 2) Entrer dans Kali via distrobox
+if [ -n "$DB" ]; then
+  case "$DB" in
+    *distrobox-enter)
+      if [ "$#" -gt 0 ]; then exec "$DB" kali-lexos -- "$@"; else exec "$DB" kali-lexos; fi ;;
+    *)
+      if [ "$#" -gt 0 ]; then exec "$DB" enter kali-lexos -- "$@"; else exec "$DB" enter kali-lexos; fi ;;
+  esac
+fi
+
+# 3) Repli : podman directement
+if command -v podman >/dev/null 2>&1; then
+  podman start kali-lexos >/dev/null 2>&1 || true
+  if [ "$#" -gt 0 ]; then exec podman exec -it kali-lexos "$@"; else exec podman exec -it kali-lexos bash; fi
+fi
+
+echo "distrobox et podman introuvables — la clé USB LexOS est-elle branchée ?" >&2
+exit 1
