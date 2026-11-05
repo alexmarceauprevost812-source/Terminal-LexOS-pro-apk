@@ -58,6 +58,9 @@ telecommande() {
   fi
 }
 
+# Garde TA bannière LexOS au lancement, si elle existe
+has lexos-banniere && { lexos-banniere; sleep 1; }
+
 while :; do
   clear 2>/dev/null; banniere
   printf "\n   %s1%s  📁 Partage de fichier  %s(QR)%s\n" "$O" "$R" "$D" "$R"
