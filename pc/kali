@@ -29,7 +29,14 @@ PODMAN="$(find_bin podman)"
 export PATH
 
 PRE='export LANG=C.UTF-8 LC_ALL=C.UTF-8;'
-SHELL_CMD="bash --norc -i"
+
+# Invite LexOS 2 lignes À L'INTÉRIEUR de Kali (home partagé -> visible dedans).
+cat > "$HOME/.lexos-kali-rc" <<'RCEOF'
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+PS1='\[\e[2m\]╭──(\[\e[0m\]\[\e[1;38;2;248;120;0m\]\u\[\e[0m\]\[\e[2m\]@kali)─[\[\e[0m\]\[\e[38;2;54;198;224m\]\w\[\e[0m\]\[\e[2m\]]\[\e[0m\]\n\[\e[2m\]╰─(\[\e[0m\]\[\e[1;38;2;118;185;0m\]kali\[\e[0m\]\[\e[2m\])──\[\e[0m\]\[\e[1;38;2;248;120;0m\]➜\[\e[0m\] '
+alias retour=exit
+RCEOF
+SHELL_CMD='bash --rcfile $HOME/.lexos-kali-rc -i'
 
 # 1) distrobox
 if [ -n "$DB" ]; then
@@ -47,7 +54,7 @@ fi
 if [ -n "$PODMAN" ]; then
   "$PODMAN" start kali-lexos >/dev/null 2>&1 || true
   if [ "$#" -gt 0 ]; then exec "$PODMAN" exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos "$@"
-  else exec "$PODMAN" exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos bash --norc -i; fi
+  else exec "$PODMAN" exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos bash --rcfile "$HOME/.lexos-kali-rc" -i; fi
 fi
 
 echo "podman/distrobox introuvables (même sur les clés USB)." >&2
