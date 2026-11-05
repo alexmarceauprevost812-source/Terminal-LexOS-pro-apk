@@ -1,0 +1,94 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-facile — mode DÉBUTANT de LexOS.
+#  Pour quelqu'un qui ne connaît pas le terminal : tout se fait en
+#  choisissant un numéro, en français simple. L'IA locale aide à tout.
+#  Menu → « Mode facile » (ou : lexos facile).
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'   # orange LexOS
+G=$'\e[1;38;2;118;185;0m'   # vert lime
+BL=$'\e[1;38;2;54;198;224m' # bleu
+D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+
+pause() { printf "\n%s— Entrée pour revenir au menu facile —%s " "$D" "$R"; read -r _ || exit 0; }
+
+# Pose une question à l'IA locale (installe/démarre l'IA toute seule au besoin).
+ia_question() {
+    clear
+    printf "%s💬 Pose ta question — l'IA locale te répond en français.%s\n" "$O" "$R"
+    printf "%s(ex : « comment voir la liste de mes fichiers »)%s\n\n" "$D" "$R"
+    printf "%stoi ❯%s " "$BL" "$R"; read -r q || return 0
+    [ -z "$q" ] && return 0
+    aide "$q"
+}
+
+# Installe un programme simplement (pkg), avec quelques suggestions.
+installer_prog() {
+    clear
+    printf "%s📦 Installer un programme%s\n" "$O" "$R"
+    printf "%sExemples utiles : %spython%s, %sgit%s, %snano%s (éditeur), %sffmpeg%s (vidéo), %sopenssh%s (ssh).%s\n\n" \
+        "$D" "$O" "$D" "$O" "$D" "$O" "$D" "$O" "$D" "$O" "$D" "$R"
+    printf "%snom du programme ❯%s " "$O" "$R"; read -r p || return 0
+    [ -z "$p" ] && return 0
+    printf "%sInstallation de %s…%s\n" "$D" "$p" "$R"
+    pkg install -y "$p" && printf "%s%s installé ✅%s\n" "$G" "$p" "$R" \
+        || printf "%sÉchec. Vérifie le nom (ou le réseau).%s\n" "$RED" "$R"
+}
+
+voir_fichiers() {
+    clear
+    printf "%s📂 Tes fichiers ici %s(%s)%s :%s\n\n" "$O" "$D" "$(pwd)" "$R" "$R"
+    ls -lah --color=auto
+    printf "\n%sAstuce : %scd dossier%s pour entrer, %scd ..%s pour remonter.%s\n" "$D" "$O" "$D" "$O" "$D" "$R"
+}
+
+maj_lexos()   { clear; printf "%s🔄 Mise à jour de LexOS…%s\n\n" "$O" "$R"; lexos-update; }
+demarrer_ia() { clear; printf "%s🤖 Démarrage de l'IA locale…%s\n\n" "$O" "$R"; lexos-ia; }
+couleurs()    { clear; lexos-couleurs 2>/dev/null; }
+
+aide_demarrer() {
+    clear
+    printf "%s❓ C'est quoi LexOS ?%s\n\n" "$O" "$R"
+    cat <<TXT
+LexOS, c'est un vrai terminal Linux (Termux) sur ton téléphone, en
+français, avec une IA locale qui t'aide.
+
+Tu n'as RIEN à mémoriser : choisis un numéro dans le menu.
+  ${O}1${R}  Tu poses une question, l'IA te donne la commande.
+  ${O}2${R}  Tu installes un programme (python, git…).
+  ${O}3${R}  Tu vois tes fichiers.
+  ${O}4${R}  Tu mets LexOS à jour (dernière APK).
+  ${O}5${R}  Tu démarres l'IA locale.
+  ${O}6${R}  Tu actives les couleurs.
+
+Quand tu seras à l'aise, tape ${O}0${R} pour le mode libre (vraies
+commandes), ou ${O}lexos${R} pour le grand menu (Kali, outils…).
+TXT
+}
+
+while :; do
+    clear 2>/dev/null
+    printf "%s❯_ LexOS · MODE FACILE%s %s(débutant)%s\n" "$O" "$R" "$D" "$R"
+    printf "\n   %s1%s  💬 Poser une question à l'IA\n"        "$O" "$R"
+    printf   "   %s2%s  📦 Installer un programme\n"            "$O" "$R"
+    printf   "   %s3%s  📂 Voir mes fichiers\n"                 "$O" "$R"
+    printf   "   %s4%s  🔄 Mettre LexOS à jour\n"               "$O" "$R"
+    printf   "   %s5%s  🤖 Démarrer l'IA locale\n"             "$O" "$R"
+    printf   "   %s6%s  🎨 Couleurs\n"                          "$O" "$R"
+    printf   "   %s?%s  ❓ C'est quoi ? (aide)\n"               "$O" "$R"
+    printf   "   %s0%s  ⌨️  Mode libre / quitter\n"             "$O" "$R"
+    printf "\n%sfacile ❯%s ton choix : " "$O" "$R"
+    read -r c || break
+    case "$c" in
+        1) ia_question; pause ;;
+        2) installer_prog; pause ;;
+        3) voir_fichiers; pause ;;
+        4) maj_lexos; pause ;;
+        5) demarrer_ia; pause ;;
+        6) couleurs; pause ;;
+        \?|aide|help|h) aide_demarrer; pause ;;
+        0|q|quit|exit|"") break ;;
+        *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1 ;;
+    esac
+done
