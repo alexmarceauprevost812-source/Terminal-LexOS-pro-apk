@@ -1,0 +1,104 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-update — met à jour LexOS Pro depuis GitHub (APK signé).
+#  Télécharge la dernière release et ouvre l'installateur Android.
+#  (Les mises à jour s'installent par-dessus car l'APK est signé avec
+#   une clé stable. Voir keystore/ + build-apk.yml sur la branche claude.)
+# =====================================================================
+set -u
+
+# --- Couleurs : TOUTES définies en haut (évite « unbound variable » sous set -u) ---
+B=$'\e[1;38;2;248;120;0m'   # orange
+G=$'\e[1;32m'               # vert
+Y=$'\e[1;33m'               # jaune
+D=$'\e[2m'                  # atténué
+RED=$'\e[1;31m'             # rouge
+R=$'\e[0m'                  # reset
+
+REPO="alexmarceauprevost812-source/Terminal-LexOS-pro-apk"
+API="https://api.github.com/repos/$REPO/releases/latest"
+PKG="com.termux"                                 # paquet de l'app LexOS (fork Termux)
+CT="application/vnd.android.package-archive"
+
+FORCE=0
+case "${1:-}" in
+    -f|--force) FORCE=1 ;;
+    -h|--help)  echo "lexos-update [-f]  — met à jour LexOS Pro (-f : force la réinstallation)"; exit 0 ;;
+esac
+
+# --- Dépendances ---
+miss=""
+command -v curl >/dev/null 2>&1 || miss="$miss curl"
+command -v jq   >/dev/null 2>&1 || miss="$miss jq"
+if [ -n "$miss" ]; then
+    echo "${RED}Il manque :${R}$miss"
+    printf "Les installer ? [O/n] "; read -r r
+    case "$r" in ""|o|O|y|Y) pkg install -y $miss ;; *) exit 1 ;; esac
+fi
+
+# --- Version RÉELLEMENT installée de l'app (best effort, sans root) ---
+installed_version() {
+    local v=""
+    if command -v termux-info >/dev/null 2>&1; then
+        v=$(termux-info 2>/dev/null | grep -iE 'app version' | grep -oE '[0-9][0-9A-Za-z._-]*' | head -n1)
+    fi
+    if [ -z "$v" ]; then
+        v=$(dumpsys package "$PKG" 2>/dev/null | sed -n 's/.*versionName=\([^ ]*\).*/\1/p' | head -n1)
+    fi
+    [ -z "$v" ] && [ -f "$HOME/.lexos/.app_version" ] && v=$(cat "$HOME/.lexos/.app_version" 2>/dev/null)
+    printf '%s' "$v"
+}
+norm() { printf '%s' "$1" | tr -d ' v' | tr 'A-Z' 'a-z'; }
+
+echo "${B}❯_ LexOS${R} ${D}Vérification de la dernière version…${R}"
+JSON=$(curl -fsSL --max-time 30 "$API" 2>/dev/null) || { echo "${RED}Pas de réseau ou dépôt injoignable.${R}"; exit 1; }
+
+URL=$(printf '%s' "$JSON" | jq -r '.assets[] | select(.name|endswith(".apk")) | .browser_download_url' | head -n1)
+TAG=$(printf '%s' "$JSON" | jq -r '.tag_name // .name // empty')
+if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+    echo "${RED}Aucun APK dans la dernière release.${R}"; exit 1
+fi
+
+# --- Compare avec la version RÉELLE de l'app (et non un cache écrit d'avance) ---
+INST=$(installed_version)
+if [ "$FORCE" -eq 0 ] && [ -n "$INST" ] && [ -n "$TAG" ] && [ "$(norm "$INST")" = "$(norm "$TAG")" ]; then
+    echo "${G}Déjà à jour${R} ${D}(version installée : $INST). Forcer : lexos-update -f${R}"
+    exit 0
+fi
+[ -n "$INST" ] && echo "${D}Version installée : $INST → disponible : ${TAG:-?}${R}"
+
+# --- Permission de stockage AVANT le téléchargement, et on ATTEND qu'elle soit accordée ---
+if [ ! -d "$HOME/storage" ]; then
+    echo "${Y}Autorisation de stockage nécessaire.${R} Accepte la demande Android…"
+    termux-setup-storage
+    for _ in $(seq 1 30); do [ -d "$HOME/storage" ] && break; sleep 1; done
+fi
+if [ ! -d "$HOME/storage" ]; then
+    echo "${RED}Stockage non autorisé.${R} Relance et accepte la permission"
+    echo "${D}(ou : Paramètres Android → Applis → LexOS → Autorisations → Fichiers).${R}"
+    exit 1
+fi
+
+# --- Dossier Téléchargements PARTAGÉ (jamais le dossier privé /data/data/com.termux) ---
+DLDIR=""
+for d in "$HOME/storage/downloads" "$HOME/storage/shared/Download" "$HOME/storage/shared/Downloads"; do
+    [ -d "$d" ] && { DLDIR="$d"; break; }
+done
+if [ -z "$DLDIR" ]; then
+    echo "${RED}Dossier « Téléchargements » introuvable${R} même avec le stockage autorisé."
+    echo "${D}Ouvre l'appli « Fichiers » une fois pour créer Download/, puis relance.${R}"
+    exit 1
+fi
+APK="$DLDIR/LexOS-Pro.apk"
+
+# --- Téléchargement directement dans le stockage partagé ---
+echo "${D}Téléchargement vers $APK …${R}"
+curl -fL --progress-bar "$URL" -o "$APK" || { echo "${RED}Échec du téléchargement.${R}"; rm -f "$APK"; exit 1; }
+[ -s "$APK" ] || { echo "${RED}APK vide : téléchargement raté.${R}"; rm -f "$APK"; exit 1; }
+
+# --- Ouvre l'installateur. On N'ÉCRIT PAS la version ici : l'install est faite
+#     par l'utilisateur ; la prochaine fois on relira la version réelle de l'app. ---
+echo "${G}Téléchargé.${R} Ouverture de l'installateur…"
+command -v termux-open >/dev/null 2>&1 && termux-open --content-type "$CT" --view "$APK" 2>/dev/null
+echo "${D}Si rien ne s'ouvre : appli « Fichiers » → Téléchargements → LexOS-Pro.apk → Installer.${R}"
+echo "${D}Si « Appli non installée » : désinstalle d'abord l'ancienne version, puis réinstalle.${R}"

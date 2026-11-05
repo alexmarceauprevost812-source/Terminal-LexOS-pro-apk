@@ -1,8 +1,14 @@
-.gradle/
+# Clone local du moteur Termux (récupéré au build, ne pas committer)
+/termux-app/
+# Sorties de build
+*.apk
+*.aab
+build/
 **/build/
+.gradle/
 local.properties
 third_party/
 *.jks
 *.keystore
-*.apk
 .idea/
+!keystore/lexos-debug.keystore

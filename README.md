@@ -1,48 +1,121 @@
-# ⚜ LexOS Terminal Android — APK indépendante
+# LexOS Pro — Terminal 🟠⬛
 
-Dépôt : https://github.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk
+Un terminal Android **basé sur le moteur de [Termux](https://github.com/termux/termux-app)**
+(exactement le même : `apt`, `python`, `bash`, tous les paquets), avec une
+**interface LexOS** : noir + orange, invite colorée, et un **assistant IA local**
+qui te guide dans les commandes.
 
-## Version 0.1 : terminal Android natif
+> **Même moteur, nouvelle peau.** Le dépôt ne contient que l'interface. À la
+> compilation, GitHub récupère le vrai Termux (intact) et pose l'interface
+> par-dessus. Résultat : rien à maintenir côté moteur.
 
-- Application LexOS Terminal, package ca.lexos.terminal (séparé de com.termux et CodexLocal).
-- Vrai moteur Termux terminal-emulator et terminal-view, avec pseudo-terminal PTY.
-- Shell local Android : /system/bin/sh, sans root.
-- Écran français bleu nuit/noir, barre de saisie visible au-dessus du clavier Samsung.
-- Boutons Nouveau, Ctrl+C, Tab, Échap, flèches, Copier et Coller.
-- Application indépendante avant toute intégration future dans CodexLocal.
+---
 
-La v0.1 n'embarque PAS pkg/apt, les paquets Linux Termux, SSH ni les modèles IA : elle fournit le shell Android local. Le bootstrap Termux a un préfixe compilé dans ses binaires : le rebaptiser ne suffit pas, il faudrait le reconstruire pour ca.lexos.terminal. Nous évitons ainsi de casser une installation Termux déjà présente.
+## 📥 Obtenir l'APK (aucune installation d'outil requise)
 
-## Télécharger la compilation de test
+1. Va dans l'onglet **Actions** du dépôt → ouvre le dernier build **« Build LexOS Pro APK »**.
+2. En bas, section **Artifacts** → télécharge **`LexOS-Pro-APK`**.
+   - Ou, plus simple : la **Release `latest`** (onglet *Releases*) contient
+     toujours le dernier `LexOS-Pro-debug.apk` prêt à installer.
+3. Sur le téléphone : ouvre l'APK, autorise **« installer depuis cette source »**, installe.
 
-Ouvrir Actions → LexOS Terminal - Android APK test → dernière exécution réussie → artefact LexOS-Terminal-Android-debug.
+> C'est un APK *debug* (signé avec la clé de debug) : parfait pour tester.
+> Pour une version signée « release », on ajoutera une clé plus tard.
 
-L'archive contient app-debug.apk et SHA256SUMS, si la compilation est réussie. Ne pas confondre une compilation réussie avec un test validé sur S25 Ultra.
+Le build se relance tout seul à chaque `push` sur la branche `claude`, ou
+manuellement (**Actions → Build LexOS Pro APK → Run workflow**).
 
-IMPORTANT : les APK debug GitHub peuvent avoir des clés de signature différentes d'une compilation à l'autre. La mise à jour sans réinstallation n'est donc pas garantie avant une clé stable en secrets GitHub. Aucun mécanisme de mises à jour intégrées n'est encore fourni.
+---
 
-## Construire sur LexOS Linux
+## 🤖 L'assistant `aide`
 
-Préparer Git, JDK 17, Gradle 9.2.1, SDK Android API 36, NDK 29.0.14206865.
+Dans le terminal, demande une commande en français :
 
-    bash scripts/fetch-termux-engine.sh
-    python3 tests/check_project.py
-    gradle :app:assembleDebug
+```
+aide comment extraire un fichier zip
+aide -e "tar -xzf archive.tar.gz"     # explique une commande
+aide                                   # mode conversation
+```
 
-APK : app/build/outputs/apk/debug/app-debug.apk
+Il tourne sur une **IA locale**, au choix (configurable dans `~/.lexos/config`) :
 
-## Code source et licences
+- **Ollama** (par défaut) — modèles partagés :
+  ```
+  pkg install ollama && ollama serve        # dans un onglet
+  ollama pull llama3.2
+  ```
+- **llama.cpp sur un `.gguf`** — pour réutiliser **le même modèle que CodexLocal**
+  (zéro double téléchargement) :
+  ```
+  termux-setup-storage && pkg install llama-cpp
+  # mets ton .gguf dans ~/storage/shared/Models/ (accessible aux 2 apps)
+  # dans ~/.lexos/config : LEXAI_BACKEND="llama" + LEXAI_GGUF="...chemin..."
+  aide --serve-gguf                          # dans un onglet
+  ```
 
-Le moteur Termux provient de https://github.com/termux/termux-app à la révision 8629e632fcb95da272221be327db653fb24befe9, récupérée avant compilation par scripts/fetch-termux-engine.sh.
+`aide --install-ia` affiche ces étapes à tout moment.
 
-Termux/termux-app est distribué sous GPL-3.0-only avec exceptions et notices en amont. Les bibliothèques terminal-view et terminal-emulator incluent des contributions Apache-2.0. Les nouveaux fichiers LexOS sont publiés sous GPL-3.0-only. Toute distribution d'APK doit rendre le code source correspondant accessible et conserver les notices.
+### Compatible avec les modèles de CodexLocal
+Oui : `aide` charge **les mêmes fichiers `.gguf`** que CodexLocal
+(DeepSeek-R1-Distill-Qwen, qwen2.5-coder, etc.) via llama.cpp. Il suffit que
+le modèle soit dans le **stockage partagé** (`~/storage/shared/Models/`) pour
+que les deux apps lisent le même fichier — aucun téléchargement en double.
 
-Le dossier prototype/ archive le travail préparatoire depuis LexOS Pro ; il n'est pas utilisé par l'APK indépendante.
+## 🔄 Mettre à jour
 
-## Prochaines étapes
+Dans le terminal :
+```
+lexos maj           # télécharge et installe la dernière version (depuis la branche main)
+```
+(`lexos-update` fait la même chose ; les mises à jour publiques sortent de la branche `main`.)
+Les mises à jour s'installent **par-dessus** (l'APK est signé avec une clé
+stable, voir `keystore/`). La commande apparaît aussi dans le message d'accueil.
 
-1. Vérifier la compilation GitHub et l'exécution réelle sur Samsung S25 Ultra.
-2. Ajouter SSH sécurisé avec Tailscale vers LexOS Pro.
-3. Sessions multiples, gestion de fichiers, personnalisation des touches.
-4. Clé de signature stable et mise à jour APK.
-5. Intégration réutilisable du terminal dans CodexLocal.
+---
+
+## 🔗 Compatibilité avec CodexLocal
+
+- LexOS Pro garde le package `com.termux` ; CodexLocal a le sien → **les deux
+  s'installent et tournent en même temps**, sans conflit.
+- **Partage des modèles** : place tes `.gguf` dans le **stockage partagé**
+  (`~/storage/shared/Models/`) et pointe les deux apps dessus. Un seul fichier,
+  pas de téléchargement en double.
+
+---
+
+## 🎨 Personnaliser
+
+Tout est dans `overlay/` (copié tel quel sur Termux au build) :
+
+| Quoi | Fichier |
+|------|---------|
+| Couleurs de l'app (barre, touches, tiroir) | `overlay/app/src/main/res/values/colors.xml` + `themes.xml` |
+| Couleurs **du terminal** | `overlay/app/src/main/assets/lexos/colors.properties` |
+| Invite + alias + couleurs des commandes | `overlay/app/src/main/assets/lexos/lexos.sh` |
+| Nom de l'app | `build-config.env` → `LEXOS_APP_NAME` |
+| Icône / écran de démarrage | `overlay/app/src/main/res/mipmap-*` et `drawable/` |
+| Version de Termux utilisée | `build-config.env` → `TERMUX_REF` |
+
+Tester localement l'overlay (sans builder) :
+```
+git clone https://github.com/termux/termux-app
+scripts/apply-overlay.sh termux-app
+```
+
+---
+
+## 🗺️ À venir
+
+- [ ] **Fond d'écran visible (~30 %)** derrière le terminal — nécessite un patch
+      du moteur de rendu (Termux force un fond opaque). Prévu comme patch dédié,
+      à valider sur appareil.
+- [ ] **Logo Marceau** (couronne) en icône + écran de démarrage — en attente du
+      fichier logo (PNG, idéalement fond transparent).
+- [ ] Police assortie et version « release » signée.
+
+---
+
+## 📄 Licence
+
+GPLv3 only — voir [`LICENSE.md`](LICENSE.md) et [`NOTICE.md`](NOTICE.md).
+Travail dérivé de Termux © ses contributeurs. Merci à eux. 🙏

@@ -1,0 +1,341 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  aide — assistant de commandes LexOS Pro
+#  Interroge une IA locale pour te guider dans les commandes.
+#
+#  Deux moteurs possibles (sans retélécharger tes modèles) :
+#    - ollama      : serveur Ollama (modèles partagés par tous tes outils)
+#    - llama       : serveur llama.cpp sur un fichier .gguf  (le MÊME que
+#                    CodexLocal, placé dans le stockage partagé)
+#
+#  Usage :
+#     aide comment extraire un fichier zip
+#     aide -e "tar -xzf x.tar.gz"      (explique une commande)
+#     aide                              (mode conversation)
+#     aide --serve-gguf                 (lance llama.cpp sur ton .gguf)
+#     aide --install-ia                 (aide à l'installation)
+#
+#  Config : ~/.lexos/config
+# =====================================================================
+set -u
+
+B=$'\e[1;38;2;248;120;0m'; C=$'\e[1;36m'; G=$'\e[1;38;2;118;185;0m'; Y=$'\e[1;33m'; D=$'\e[2m'; R=$'\e[0m'
+RED=$'\e[1;38;2;255;23;68m'          # rouge néon gamer
+BLEU=$'\e[1;38;2;44;200;255m'      # bleu néon pour « toi »
+
+# --- Config : une variable passée à la main gagne sur le fichier config,
+#     qui gagne sur les valeurs par défaut. ---
+_e_backend="${LEXAI_BACKEND:-}"; _e_url="${LEXAI_URL:-}"; _e_model="${LEXAI_MODEL:-}"
+_e_lurl="${LEXAI_LLAMA_URL:-}"; _e_gguf="${LEXAI_GGUF:-}"
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+LEXAI_BACKEND="${_e_backend:-${LEXAI_BACKEND:-llama}}"
+LEXAI_URL="${_e_url:-${LEXAI_URL:-http://127.0.0.1:11434}}"
+LEXAI_MODEL="${_e_model:-${LEXAI_MODEL:-llama3.2:1b}}"
+LEXAI_LLAMA_URL="${_e_lurl:-${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}}"
+LEXAI_GGUF="${_e_gguf:-${LEXAI_GGUF:-}}"
+
+SYSTEM_SUGGEST="Tu es l'assistant LexOS Pro, intégré à un terminal Termux (Linux sur Android).
+Quand on te décrit une tâche, réponds en français du Québec, de façon concise :
+1) la commande EXACTE à taper, seule sur sa première ligne ;
+2) ensuite une courte explication (1-3 phrases).
+Préfère les commandes compatibles Termux (pkg au lieu de apt-get, pas de sudo).
+Si une commande est risquée (efface des fichiers, etc.), avertis en une ligne."
+
+SYSTEM_EXPLAIN="Tu es l'assistant LexOS Pro. On te donne une commande.
+Explique en français du Québec, simplement, ce qu'elle fait, option par option si utile.
+Signale tout danger. Sois concis."
+
+SYSTEM_CHAT="Tu es LexOS, un assistant IA amical en français du Québec.
+Discute de façon naturelle et utile, réponds à tout (pas seulement des commandes).
+Sois clair et concis."
+
+SYSTEM_AGENT="Tu es LexOS AGENT, dans un terminal Termux (Linux sur Android).
+Pour accomplir la tâche, donne UNE SEULE commande à la fois, dans un bloc \`\`\`bash.
+Je l'exécute et je te renvoie le résultat ; tu continues avec la commande suivante.
+Quand la tâche est complètement finie, écris le mot FINI (sans commande).
+Utilise les commandes Termux (pkg, pas apt-get, jamais sudo). Sois prudent."
+
+need_dep() {
+    local missing=""
+    command -v curl >/dev/null 2>&1 || missing="$missing curl"
+    command -v jq   >/dev/null 2>&1 || missing="$missing jq"
+    if [ -n "$missing" ]; then
+        echo "${Y}Il manque :${R}$missing"
+        printf "Les installer maintenant avec pkg ? [O/n] "
+        read -r rep
+        case "$rep" in ""|o|O|y|Y) pkg install -y $missing ;;
+            *) echo "${D}Annulé. Fais : pkg install$missing${R}"; exit 1 ;; esac
+    fi
+}
+
+check_backend() {
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        if ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/health" >/dev/null 2>&1 \
+          && ! curl -s --max-time 3 "$LEXAI_LLAMA_URL/v1/models" >/dev/null 2>&1; then
+            # Auto : installe llama.cpp, télécharge le modèle et démarre le serveur
+            if command -v lexos-ia >/dev/null 2>&1; then
+                lexos-ia || exit 1
+            else
+                echo "${RED}Serveur llama.cpp injoignable.${R} ${D}Fais : aide --serve-gguf${R}"; exit 1
+            fi
+        fi
+    else
+        if ! curl -s --max-time 3 "$LEXAI_URL/api/tags" >/dev/null 2>&1; then
+            if command -v lexos-ia >/dev/null 2>&1; then
+                lexos-ia || exit 1
+            else
+                echo "${RED}Ollama injoignable.${R} ${D}Fais : aide --install-ia${R}"; exit 1
+            fi
+        fi
+    fi
+}
+
+# Spinner d'emoji animé pendant que l'IA travaille (sur stderr, pour ne pas polluer la sortie)
+__spin() {
+    local msg="$1" pid="$2" i=0
+    local f=(😛 😜 😝 😀 😃 😄 😁 🤖 ⚡ 🔥 ✨ 💫 🧠 👾)
+    if [ ! -t 2 ]; then wait "$pid"; return; fi
+    tput civis 2>/dev/null
+    while kill -0 "$pid" 2>/dev/null; do
+        printf '\r\e[1;38;2;248;120;0m%s\e[0m %s ' "${f[i % ${#f[@]}]}" "$msg" >&2
+        i=$((i + 1)); sleep 0.15
+    done
+    printf '\r\e[K' >&2
+    tput cnorm 2>/dev/null
+}
+
+# POST avec spinner : $1=url  $2=payload  $3=1 -> entête JSON
+__post() {
+    local tmp; tmp=$(mktemp)
+    if [ "${3:-}" = "1" ]; then
+        curl -s --max-time 180 "$1" -H 'Content-Type: application/json' -d "$2" >"$tmp" 2>/dev/null &
+    else
+        curl -s --max-time 180 "$1" -d "$2" >"$tmp" 2>/dev/null &
+    fi
+    local pid=$!
+    __spin "LexOS réfléchit…" "$pid"
+    wait "$pid"
+    cat "$tmp"; rm -f "$tmp"
+}
+
+ask() {
+    local system="$1"; local user="$2" resp content err
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        local payload
+        payload=$(jq -n --arg s "$system" --arg u "$user" \
+            '{stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
+        resp=$(__post "$LEXAI_LLAMA_URL/v1/chat/completions" "$payload" 1)
+        content=$(printf '%s' "$resp" | jq -r '.choices[0].message.content // empty')
+    else
+        local payload
+        payload=$(jq -n --arg m "$LEXAI_MODEL" --arg s "$system" --arg u "$user" \
+            '{model:$m, stream:false, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
+        resp=$(__post "$LEXAI_URL/api/chat" "$payload")
+        content=$(printf '%s' "$resp" | jq -r '.message.content // empty')
+    fi
+    if [ -z "$content" ]; then
+        err=$(printf '%s' "$resp" | jq -r '.error // .error.message // empty' 2>/dev/null)
+        [ -n "$err" ] && echo "${RED}IA : $err${R}" || echo "${RED}Réponse vide de l'IA.${R}"
+        [ "$LEXAI_BACKEND" = "ollama" ] && echo "${D}→ Modèle absent ? Fais :  ollama pull $LEXAI_MODEL${R}"
+        return 1
+    fi
+    _LAST="$content"            # réponse brute (pour le mode /auto)
+    printf '%s\n' "$content" | __hl
+}
+
+# Vrai : la commande est-elle sensible (à confirmer) ?
+__is_dangerous() {
+    printf '%s' "$1" | grep -qiE 'rm +-[rf]|rm +-rf| dd |mkfs|> *\/dev\/|chmod +-R +777|:\(\)\{|\bformat\b|wipe|pkg +uninstall|rm +-rf +\/'
+}
+
+# Mode AGENT : l'IA exécute une commande, voit le résultat, enchaîne (max 6 étapes)
+__agent() {
+    local task="$1" cmd out ok conv step
+    conv="Tâche à accomplir : $task"
+    for step in 1 2 3 4 5 6; do
+        __say; ask "$SYSTEM_AGENT" "$conv"; echo
+        case "$_LAST" in *FINI*|*Fini*|*fini*) echo "${G}✓ Tâche terminée.${R}"; return ;; esac
+        cmd="$(__extract_cmd "$_LAST")"
+        cmd="$(printf '%s' "$cmd" | sed -E 's/(^| )sudo +/\1/g')"
+        [ -z "$cmd" ] && { echo "${D}Pas de commande — j'arrête.${R}"; return ; }
+        if __is_dangerous "$cmd"; then
+            printf "${Y}⚠ Commande sensible :${R} %s\n${D}[Entrée=oui, n=non]${R} " "$cmd"
+            read -r ok </dev/tty
+            case "$ok" in ""|o|O|y|Y) ;; *) echo "${D}Agent arrêté.${R}"; return ;; esac
+        fi
+        echo "${D}─── exécution (étape $step) ───${R}"
+        out="$(bash -c "$cmd" 2>&1)"
+        printf '%s\n' "$out"
+        echo "${D}──────────────────────────────${R}"
+        conv="$conv
+[commande exécutée] $cmd
+[résultat]
+$out
+Continue avec la prochaine commande, ou écris FINI si c'est terminé."
+    done
+    echo "${D}(limite d'étapes atteinte)${R}"
+}
+
+# Extrait la commande de la réponse (bloc ``` en priorité, sinon 1re ligne non vide)
+__extract_cmd() {
+    local c
+    c="$(printf '%s\n' "$1" | awk 'f&&/^```/{exit} f{print;next} /^```/{f=1}' | head -1)"
+    [ -z "$c" ] && c="$(printf '%s\n' "$1" | grep -m1 -vE '^[[:space:]]*$')"
+    printf '%s' "$c"
+}
+
+serve_gguf() {
+    [ -z "$LEXAI_GGUF" ] && { echo "${RED}LEXAI_GGUF n'est pas défini.${R}"; echo "${D}Mets dans ~/.lexos/config :  LEXAI_GGUF=\"\$HOME/storage/shared/Models/ton-modele.gguf\"${R}"; exit 1; }
+    [ -f "$LEXAI_GGUF" ] || { echo "${RED}Fichier introuvable : $LEXAI_GGUF${R}"; exit 1; }
+    command -v llama-server >/dev/null 2>&1 || { echo "${Y}llama.cpp absent.${R} Installe : ${B}pkg install llama-cpp${R}"; exit 1; }
+    echo "${B}LexOS ❯${R} Démarre llama.cpp sur $(basename "$LEXAI_GGUF")  (Ctrl-C pour arrêter)"
+    echo "${D}Laisse cet onglet ouvert, puis dans un autre : LEXAI_BACKEND=llama aide ta question${R}"
+    exec llama-server -m "$LEXAI_GGUF" --host 127.0.0.1 --port "${LEXAI_LLAMA_URL##*:}"
+}
+
+# Couleurs des réponses du codex :
+#   l'IA qui parle   -> bleu néon
+#   les commandes    -> jaune or
+__hl() {
+    local bleu=$'\e[1;38;2;44;200;255m' gold=$'\e[1;38;2;255;215;0m' z=$'\e[0m'
+    local incode=0 line
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            '```'*) incode=$((1 - incode)); continue ;;
+        esac
+        if [ "$incode" -eq 1 ]; then
+            printf '%s%s%s\n' "$gold" "$line" "$z"
+        else
+            printf '%s%s%s\n' "$bleu" "$line" "$z"
+        fi
+    done
+}
+
+# /model : liste ou change le modèle sans quitter la conversation
+__cmd_model() {
+    local m; m="$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        echo "${D}En mode llama.cpp, le modèle = le serveur en cours.${R}"
+        echo "${D}Pour en changer : relance le serveur avec un autre fichier .gguf.${R}"
+        return
+    fi
+    if [ -z "$m" ]; then
+        echo "${B}Modèles installés :${R}"
+        ollama list 2>/dev/null | awk 'NR>1{print "  • "$1}'
+        echo "${D}Changer : /model <nom>   (ex: /model qwen2.5:0.5b)${R}"
+        return
+    fi
+    if ! ollama list 2>/dev/null | grep -qi "${m%%:*}"; then
+        echo "${D}Téléchargement de $m…${R}"
+        ollama pull "$m" || { echo "${RED}Échec du téléchargement de $m${R}"; return; }
+    fi
+    LEXAI_MODEL="$m"
+    echo "${G}Modèle actif : $LEXAI_MODEL${R}"
+}
+
+# Étiquette de l'IA (avatar/logo à gauche) avant chaque réponse
+__say() {
+    if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/avatar.png" ]; then
+        chafa --size=6x3 "$HOME/.lexos/avatar.png" 2>/dev/null
+    fi
+    printf '%s🤖 LexOS ❯%s\n' "$B" "$R"
+}
+
+banner() {
+    # Wordmark LexOS (net, aucune dépendance) au lancement du codex
+    [ -f "$HOME/.lexos/banner.txt" ] && cat "$HOME/.lexos/banner.txt"
+    if [ "$LEXAI_BACKEND" = "llama" ]; then
+        echo "${B}❯_ LexOS${R} ${D}· llama.cpp : ${LEXAI_GGUF:+$(basename "$LEXAI_GGUF")}${R}"
+    else
+        echo "${B}❯_ LexOS${R} ${D}· Ollama : $LEXAI_MODEL${R}"
+    fi
+}
+
+case "${1:-}" in
+    -h|--help)
+        echo "${B}aide${R} — assistant de commandes LexOS Pro"
+        echo "  aide <ta question>        suggère la commande"
+        echo "  aide -e <commande>        explique une commande"
+        echo "  aide                      mode conversation"
+        echo "  aide --serve-gguf         lance llama.cpp sur ton .gguf partagé"
+        echo "  aide --install-ia         comment installer l'IA locale"
+        echo ""
+        echo "${D}Moteur actuel : $LEXAI_BACKEND (change avec LEXAI_BACKEND dans ~/.lexos/config)${R}"
+        exit 0 ;;
+    --install-ia)
+        echo "${B}Le plus simple — tout automatique :${R}"
+        echo "  lexos-ia            ${D}# installe Ollama, démarre le serveur, télécharge le modèle${R}"
+        echo "  ${D}(c'est aussi fait tout seul quand tu lances 'lex' pour la 1re fois)${R}"
+        echo ""
+        echo "${B}Choisir un modèle (léger -> lourd, selon ton téléphone) :${R}"
+        echo "  lexos-ia llama3.2:1b        ${D}# léger, polyvalent (défaut)${R}"
+        echo "  lexos-ia qwen2.5:1.5b       ${D}# léger, bon en code${R}"
+        echo "  lexos-ia deepseek-r1:1.5b   ${D}# léger, raisonnement (comme CodexLocal)${R}"
+        echo "  lexos-ia mistral            ${D}# 7B, plus lourd (téléphone costaud)${R}"
+        echo "  ${D}# pour garder un modèle : LEXAI_MODEL=\"...\" dans ~/.lexos/config${R}"
+        echo ""
+        echo "${B}Option avancée — réutiliser le MÊME .gguf que CodexLocal :${R}"
+        echo "  termux-setup-storage          ${D}# donne accès au stockage partagé${R}"
+        echo "  pkg install -y llama-cpp"
+        echo "  ${D}# place/trouve ton .gguf dans ~/storage/shared/Models/ (accessible aux 2 apps)${R}"
+        echo "  ${D}# puis dans ~/.lexos/config :${R}"
+        echo "     LEXAI_BACKEND=\"llama\""
+        echo "     LEXAI_GGUF=\"\$HOME/storage/shared/Models/ton-modele.gguf\""
+        echo "  aide --serve-gguf"
+        exit 0 ;;
+    --serve-gguf) serve_gguf ;;
+    -e|--explique)
+        shift; need_dep; check_backend; banner
+        [ $# -eq 0 ] && { echo "Donne une commande à expliquer."; exit 1; }
+        __say; ask "$SYSTEM_EXPLAIN" "$*"; exit $? ;;
+    "")
+        need_dep; check_backend; banner
+        MODE="codex"
+        echo "${D}Modes :${R} ${B}/codex${R}  ${B}/chat${R}  ${B}/auto${R}  ${B}/agent${R}  ·  ${B}/model${R}  ·  ${B}/q${R}"
+        while :; do
+            printf "${B}toi ❯ ${R}"; read -r q || break
+            case "$q" in
+                q|quit|exit|/q|/quit|/exit) break ;;
+                "") continue ;;
+                /help|/aide) echo "${D}/codex propose · /chat discute · /auto exécute 1 cmd · /agent fait la tâche (multi-étapes) · /model [nom] · /q${R}"; continue ;;
+                /model*) __cmd_model "${q#/model}"; continue ;;
+                /chat) MODE="chat"; echo "${G}Mode CHAT${R} ${D}— discute librement.${R}"; continue ;;
+                /codex|/suggest) MODE="codex"; echo "${G}Mode CODEX${R} ${D}— l'IA propose la commande.${R}"; continue ;;
+                /auto) MODE="auto"; echo "${Y}Mode AUTO${R} ${D}— exécute les commandes sûres toutes seules (confirme si sensible, pas de sudo).${R}"; continue ;;
+                /agent) MODE="agent"; echo "${Y}Mode AGENT${R} ${D}— l'IA exécute, voit le résultat et enchaîne jusqu'à finir la tâche.${R}"; continue ;;
+                /*) echo "${D}Commande inconnue. /codex /chat /auto /agent /model /q${R}"; continue ;;
+            esac
+            if [ "$MODE" = "agent" ]; then
+                __agent "$q"; echo; continue
+            fi
+            __say
+            if [ "$MODE" = "chat" ]; then
+                ask "$SYSTEM_CHAT" "$q"; echo
+            else
+                ask "$SYSTEM_SUGGEST" "$q"; echo
+                if [ "$MODE" = "auto" ]; then
+                    CMD="$(__extract_cmd "$_LAST")"
+                    CMD="$(printf '%s' "$CMD" | sed -E 's/(^| )sudo +/\1/g')"   # Termux : pas de sudo
+                    if [ -n "$CMD" ]; then
+                        if printf '%s' "$CMD" | grep -qiE 'rm +-[rf]|rm +-rf| dd |mkfs|> *\/dev\/|chmod +-R +777|:\(\)\{|\bformat\b|wipe|pkg +uninstall|rm +-rf +\/'; then
+                            # Commande sensible -> on demande avant
+                            printf "${Y}⚠ Commande sensible :${R} %s\n${D}[Entrée = oui, n = non]${R} " "$CMD"
+                            read -r ok </dev/tty
+                            case "$ok" in
+                                ""|o|O|y|Y) echo "${D}─── exécution ───${R}"; bash -c "$CMD"; echo "${D}─────────────────${R}" ;;
+                                *) echo "${D}Annulé.${R}" ;;
+                            esac
+                        else
+                            # Commande sûre -> exécution automatique
+                            echo "${D}─── exécution auto ───${R}"; bash -c "$CMD"; echo "${D}──────────────────────${R}"
+                        fi
+                    fi
+                fi
+                echo
+            fi
+        done
+        echo "${D}À la prochaine.${R}"; exit 0 ;;
+    *)
+        need_dep; check_backend; banner
+        __say; ask "$SYSTEM_SUGGEST" "$*"; exit $? ;;
+esac

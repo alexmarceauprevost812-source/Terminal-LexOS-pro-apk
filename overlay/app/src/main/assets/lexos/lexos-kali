@@ -1,0 +1,107 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-kali — installe Kali NetHunter (sans root) dans LexOS/Termux,
+#  installe les outils d'audit AU COMPLET, et pose les raccourcis LexOS
+#  directement dans l'invite Kali.
+#  Menu → « Installer Kali ».  Installateur officiel Offensive Security.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;32m'; RED=$'\e[1;31m'; D=$'\e[2m'; R=$'\e[0m'
+
+# --- Raccourcis LexOS dans l'invite Kali (root + user), idempotent -----------
+#  Pose un bloc dans les .bashrc de Kali : invite colorée + commande « outils »
+#  qui liste les outils d'audit, et « retour » pour revenir à LexOS.
+seed_kali_shortcuts() {
+    echo "${O}❯_ LexOS${R} Pose des raccourcis dans l'invite Kali…"
+    kali -r bash -s <<'KALI_SEED' 2>/dev/null || return 0
+set -e
+BLOCK_START="# >>> LexOS >>>"
+read -r -d '' LEXOS_BLOCK <<'EOF' || true
+# >>> LexOS >>>
+# Invite Kali aux couleurs LexOS (rouge néon + flèche orange)
+__lexos_kali_ps1() {
+  local u; u=$(whoami 2>/dev/null)
+  if [ "$u" = root ]; then
+    PS1='\[\e[1;38;2;255;77;109m\]\u\[\e[0m\]@\[\e[1;38;2;248;120;0m\]kali\[\e[0m\] \[\e[38;2;54;198;224m\]\w\[\e[0m\] \[\e[1;38;2;248;120;0m\]❯\[\e[0m\] '
+  else
+    PS1='\[\e[1;38;2;118;185;0m\]\u\[\e[0m\]@\[\e[1;38;2;248;120;0m\]kali\[\e[0m\] \[\e[38;2;54;198;224m\]\w\[\e[0m\] \[\e[1;38;2;118;185;0m\]❯\[\e[0m\] '
+  fi
+}
+PROMPT_COMMAND=__lexos_kali_ps1
+# Raccourci : « outils » liste les outils d'audit installés
+outils() {
+  local O=$'\e[1;38;2;248;120;0m' D=$'\e[2m' R=$'\e[0m'
+  echo "${O}──  OUTILS D'AUDIT KALI  ──${R}  ${D}(cibles autorisées uniquement)${R}"
+  echo "  🌐 nmap  masscan  dnsrecon  theHarvester"
+  echo "  🕸  nikto  sqlmap  wpscan  gobuster  dirbuster  nuclei  wafw00f  commix"
+  echo "  🔐 hydra  medusa      📡 wifite  reaver      🕵 ettercap"
+  echo "  🎯 searchsploit  msfconsole"
+  echo "${D}Tape directement le nom de l'outil. ${R}${O}retour${R}${D} = revenir à LexOS.${R}"
+}
+alias catalogue=outils
+alias retour=exit
+alias lexos-aide='echo "Reviens à LexOS avec: retour (ou exit). Outils: outils"'
+# Message d'accueil Kali (une fois par session)
+if [ -z "${LEXOS_KALI_MOTD:-}" ] && [ -t 1 ]; then
+  export LEXOS_KALI_MOTD=1
+  printf '\e[1;38;2;248;120;0m❯_ Kali\e[0m \e[2m· via LexOS Pro — tape \e[0m\e[1;38;2;248;120;0moutils\e[0m\e[2m pour la liste, \e[0m\e[1;38;2;248;120;0mretour\e[0m\e[2m pour sortir\e[0m\n'
+fi
+# <<< LexOS <<<
+EOF
+for RC in /root/.bashrc /home/kali/.bashrc; do
+  [ -d "$(dirname "$RC")" ] || continue
+  if ! grep -q "$BLOCK_START" "$RC" 2>/dev/null; then
+    printf '\n%s\n' "$LEXOS_BLOCK" >> "$RC"
+  fi
+done
+KALI_SEED
+    echo "${G}Raccourcis Kali posés ✅${R}  ${D}(invite colorée, commande « outils », « retour »)${R}"
+}
+
+# --- Installation complète des outils d'audit dans Kali ----------------------
+install_kali_tools() {
+    echo "${O}❯_ LexOS${R} Installation des outils Kali ${G}au complet${R} (kali-tools-top10)…"
+    echo "${D}Ça peut être long la première fois (téléchargement des outils).${R}"
+    if kali -r sh -c "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y kali-tools-top10"; then
+        echo "${G}Outils Kali installés au complet ✅${R}"
+    else
+        echo "${RED}L'installation des outils a échoué (réseau ?).${R}"
+        echo "${D}Tu peux réessayer plus tard : ${R}${O}lexos kali${R}"
+        return 1
+    fi
+}
+
+# --- Déjà installé : on complète quand même (outils + raccourcis) ------------
+if command -v nethunter >/dev/null 2>&1; then
+    echo "${G}Kali NetHunter est déjà installé ✅${R}"
+    seed_kali_shortcuts
+    install_kali_tools || true
+    echo "${D}Entrer dans Kali : ${R}${O}kali -r${R}  ${D}· outils d'audit : ${R}${O}lexos outils${R}"
+    exit 0
+fi
+
+# --- Installation de Kali NetHunter (sans root) ------------------------------
+echo "${O}❯_ LexOS${R} Installation de Kali NetHunter (sans root)…"
+echo "${D}Ça télécharge le système Kali. L'installateur te demandera quelle"
+echo "variante (Full / Minimal / Nano). Minimal suffit pour la plupart des outils.${R}"
+echo ""
+
+command -v wget >/dev/null 2>&1 || pkg install -y wget || { echo "${RED}Échec installation wget.${R}"; exit 1; }
+
+INST="$HOME/install-nethunter-termux"
+wget -O "$INST" https://offs.ec/2MceZWr || { echo "${RED}Téléchargement de l'installateur échoué (réseau ?).${R}"; exit 1; }
+chmod +x "$INST"
+"$INST" || { echo "${RED}L'installation de NetHunter a échoué.${R}"; exit 1; }
+
+echo ""
+echo "${G}Kali NetHunter installé ✅${R}"
+
+# Pose les raccourcis puis installe les outils au complet, automatiquement.
+seed_kali_shortcuts
+install_kali_tools || true
+
+echo ""
+echo "${G}Kali est prêt au complet ✅${R}"
+echo "${D}1) Entre dans Kali : ${R}${O}kali -r${R}"
+echo "${D}2) Dans Kali, tape ${R}${O}outils${R}${D} pour la liste, ou directement un outil (ex. ${R}${O}nmap${R}${D}).${R}"
+echo "${D}3) Reviens à LexOS avec ${R}${O}retour${R}${D} (ou ${R}exit${D}), puis le ${R}${O}Catalogue${R}${D} (menu → 6).${R}"

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LexOS Pro — thème de l'interface.
+  Remplace themes.xml de Termux. Les thèmes de base (parents) restent ceux de
+  Termux : on ne change QUE les couleurs et on ajoute l'écran de démarrage.
+-->
+<resources>
+
+    <!-- Thèmes app (inchangés, hérités de Termux) -->
+    <style name="Theme.TermuxApp.Light.DarkActionBar" parent="Theme.BaseActivity.Light.DarkActionBar"/>
+    <style name="Theme.TermuxApp.Light.NoActionBar" parent="Theme.BaseActivity.Light.NoActionBar"/>
+    <style name="Theme.TermuxApp.DayNight.DarkActionBar" parent="Theme.BaseActivity.DayNight.DarkActionBar"/>
+    <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.BaseActivity.DayNight.NoActionBar"/>
+
+    <!-- Thème de l'écran du terminal : reskin LexOS Pro -->
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.NoActionBar">
+        <!-- Couleur de marque -->
+        <item name="colorPrimary">@color/lexos_orange_deep</item>
+        <item name="colorPrimaryVariant">@color/lexos_orange_deep</item>
+
+        <item name="android:windowBackground">@color/lexos_bg</item>
+
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:windowAllowReturnTransitionOverlap">true</item>
+        <item name="android:windowAllowEnterTransitionOverlap">true</item>
+
+        <!-- Écran de démarrage (Android 12+). Ignoré sans danger sur versions antérieures. -->
+        <item name="android:windowSplashScreenBackground">@color/lexos_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/lexos_splash</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/lexos_orange_deep</item>
+
+        <!-- Tiroir de gauche -->
+        <item name="buttonBarButtonStyle">@style/TermuxActivity.Drawer.ButtonBarStyle.Light</item>
+        <item name="termuxActivityDrawerBackground">@color/lexos_surface</item>
+        <item name="termuxActivityDrawerImageTint">@color/lexos_orange_bright</item>
+
+        <!-- Touches supplémentaires -->
+        <item name="extraKeysButtonTextColor">@color/lexos_fg</item>
+        <item name="extraKeysButtonActiveTextColor">@color/lexos_orange_bright</item>
+        <item name="extraKeysButtonBackgroundColor">@color/lexos_surface</item>
+        <item name="extraKeysButtonActiveBackgroundColor">@color/lexos_orange_deep</item>
+    </style>
+
+</resources>

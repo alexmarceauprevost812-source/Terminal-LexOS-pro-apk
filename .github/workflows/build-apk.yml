@@ -1,0 +1,139 @@
+name: Build LexOS Pro APK
+
+# Compile l'APK automatiquement :
+#  - à chaque push sur claude / supabase / main
+#  - ou manuellement (onglet Actions -> Run workflow)
+on:
+  push:
+    branches: [claude, supabase, main]
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # pour publier l'APK dans une Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer l'interface LexOS (ce dépôt)
+        uses: actions/checkout@v4
+        with:
+          path: lexos
+
+      - name: Lire la config de build
+        id: cfg
+        run: |
+          set -a; source lexos/build-config.env; set +a
+          echo "TERMUX_REPO=$TERMUX_REPO"       >> "$GITHUB_OUTPUT"
+          echo "TERMUX_REF=$TERMUX_REF"         >> "$GITHUB_OUTPUT"
+          echo "LEXOS_APP_NAME=$LEXOS_APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "Moteur : $TERMUX_REPO @ $TERMUX_REF — app : $LEXOS_APP_NAME"
+
+      - name: Récupérer le moteur Termux (intact, version figée)
+        run: |
+          git clone --no-single-branch "${{ steps.cfg.outputs.TERMUX_REPO }}" termux-app
+          git -C termux-app checkout "${{ steps.cfg.outputs.TERMUX_REF }}"
+
+      - name: Poser l'interface LexOS (+ patch signature / versionCode)
+        env:
+          LEXOS_APP_NAME: ${{ steps.cfg.outputs.LEXOS_APP_NAME }}
+        run: bash "$GITHUB_WORKSPACE/lexos/scripts/apply-overlay.sh" "$GITHUB_WORKSPACE/termux-app"
+
+      - name: Préparer le keystore de signature
+        id: keystore
+        env:
+          LEXOS_KEYSTORE_B64: ${{ secrets.LEXOS_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$LEXOS_KEYSTORE_B64" ]; then
+            printf '%s' "$LEXOS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/lexos-release.keystore"
+            echo "store=$RUNNER_TEMP/lexos-release.keystore" >> "$GITHUB_OUTPUT"
+            echo "signed=1" >> "$GITHUB_OUTPUT"
+            echo "Keystore release (secret) prêt -> build signé release."
+          else
+            echo "signed=0" >> "$GITHUB_OUTPUT"
+            echo "Pas de secret : build debug signé avec la clé de test stable intégrée"
+            echo "(signature identique à chaque build -> les mises à jour s'installent par-dessus)."
+            echo "Pour ta propre clé (ex. depuis Windows), voir SIGNING.md."
+          fi
+
+      - name: Numéro de version (monte à chaque build)
+        id: vc
+        run: |
+          CODE=$((10000 + ${{ github.run_number }}))
+          NAME="0.118.${{ github.run_number }}"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$CODE  versionName=$NAME"
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Installer plateformes / NDK (SDK préinstallé du runner)
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "SDK: $SDK"
+          SDKMAN="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMAN" ] || SDKMAN="$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n1)"
+          echo "sdkmanager: $SDKMAN"
+          yes | "$SDKMAN" --licenses >/dev/null 2>&1 || true
+          "$SDKMAN" "platform-tools" "platforms;android-36" "build-tools;36.0.0" \
+                    "ndk;29.0.14206865" "cmake;3.22.1"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK"     >> "$GITHUB_ENV"
+
+      - name: Compiler l'APK (release signé si secret présent, sinon debug)
+        working-directory: termux-app
+        env:
+          LEXOS_STORE_FILE: ${{ steps.keystore.outputs.store }}
+          LEXOS_STORE_PASSWORD: ${{ secrets.LEXOS_KEYSTORE_PASSWORD }}
+          LEXOS_KEY_ALIAS: ${{ secrets.LEXOS_KEY_ALIAS }}
+          LEXOS_KEY_PASSWORD: ${{ secrets.LEXOS_KEY_PASSWORD }}
+          LEXOS_VERSION_CODE: ${{ steps.vc.outputs.code }}
+          TERMUX_APP_VERSION_NAME: ${{ steps.vc.outputs.name }}
+          TERMUX_APK_VERSION_TAG: lexos-${{ steps.vc.outputs.name }}
+          TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS: "0"
+          TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: "0"
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.keystore.outputs.signed }}" = "1" ]; then
+            ./gradlew assembleRelease --stacktrace --no-daemon
+          else
+            ./gradlew assembleDebug --stacktrace --no-daemon
+          fi
+
+      - name: Repérer l'APK produit (universal / arm64)
+        id: apk
+        run: |
+          APK=$(find termux-app/app/build/outputs/apk -name '*universal*.apk' | head -n1)
+          [ -z "$APK" ] && APK=$(find termux-app/app/build/outputs/apk -name '*arm64*.apk' | head -n1)
+          [ -z "$APK" ] && APK=$(find termux-app/app/build/outputs/apk -name '*.apk' | head -n1)
+          test -n "$APK" || { echo "Aucun APK trouvé"; exit 1; }
+          echo "Trouvé : $APK"
+          cp "$APK" "LexOS-Pro.apk"
+          echo "path=LexOS-Pro.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Publier l'APK en artifact (téléchargeable depuis cette exécution)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LexOS-Pro-APK
+          path: LexOS-Pro.apk
+          if-no-files-found: error
+
+      - name: Publier la Release « latest » (mises à jour)
+        if: github.ref == 'refs/heads/claude' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: LexOS Pro — dernière compilation
+          body: |
+            APK de LexOS Pro compilé automatiquement.
+            versionName ${{ steps.vc.outputs.name }} · versionCode ${{ steps.vc.outputs.code }}
+            Signature : ${{ steps.keystore.outputs.signed == '1' && 'clé release (secret)' || 'clé debug (ajoute les secrets, voir SIGNING.md)' }}
+            Moteur Termux figé : ${{ steps.cfg.outputs.TERMUX_REF }}
+            Build #${{ github.run_number }} — commit ${{ github.sha }}
+          files: LexOS-Pro.apk
+          make_latest: true
