@@ -25,6 +25,10 @@ case "${1:-}" in
         exec lexos-facile ;;
     partage|partager|qr|share)
         exec lexos-partage ;;
+    fichier|fichiers|file|envoyer)
+        shift; exec lexos-fichier "$@" ;;
+    recevoir|recois|reçois)
+        exec lexos-fichier recevoir ;;
     nom|name|prenom|prénom)
         shift
         cfg="$HOME/.lexos/config"; mkdir -p "$HOME/.lexos"; touch "$cfg"
@@ -58,6 +62,8 @@ case "${1:-}" in
         echo "  ${B}lexos facile${R}     mode débutant (tout par numéros)"
         echo "  ${B}lexos nom <nom>${R}  mettre ton nom dans l'invite"
         echo "  ${B}lexos partage${R}    partager LexOS par QR code"
+        echo "  ${B}lexos fichier <f>${R} envoyer un fichier par QR"
+        echo "  ${B}lexos recevoir${R}   recevoir un fichier par QR"
         echo "${D}(tu peux aussi écrire : lexos mise à jour)${R}" ;;
     *)
         echo "Commande inconnue : ${1}"
