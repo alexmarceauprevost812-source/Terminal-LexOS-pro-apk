@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# =====================================================================
+#  lexos-skin-kali — habille le bureau Kali (XFCE / KeX) en LexOS.
+#  Fond d'écran LexOS (noir/orange) + thème sombre + icônes.
+#  À lancer DANS le bureau Kali (son terminal).
+#    bash lexos-skin-kali
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+RAW="https://raw.githubusercontent.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk/main/pc/lexos-wallpaper.png"
+WP="$HOME/.lexos/wallpaper.png"; mkdir -p "$HOME/.lexos"
+
+echo "${O}❯_ LexOS${R} Habillage du bureau Kali en LexOS…"
+
+command -v xfconf-query >/dev/null 2>&1 || { echo "${RED}xfconf-query absent — ce n'est pas un bureau XFCE.${R}"; exit 1; }
+
+# 1) Fond d'écran LexOS
+if command -v curl >/dev/null 2>&1; then curl -fsSL "$RAW" -o "$WP" 2>/dev/null; 
+elif command -v wget >/dev/null 2>&1; then wget -qO "$WP" "$RAW"; fi
+if [ -f "$WP" ]; then
+  while read -r p; do
+    [ -n "$p" ] || continue
+    xfconf-query -c xfce4-desktop -p "$p" -s "$WP" 2>/dev/null
+    xfconf-query -c xfce4-desktop -p "${p%last-image}image-style" -s 5 2>/dev/null || true
+  done < <(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image)
+  echo "${G}✅ fond d'écran LexOS${R}"
+else
+  echo "${RED}Fond non téléchargé (réseau ?). On continue le thème.${R}"
+fi
+
+# 2) Thème sombre + icônes (premier disponible)
+pick() { local d="$1"; shift; for t in "$@"; do [ -d "$d/$t" ] && { echo "$t"; return; }; done; }
+GTK=$(pick /usr/share/themes Kali-Dark Adwaita-dark Arc-Dark Yaru-dark Breeze-Dark)
+WM=$(pick /usr/share/themes Kali-Dark Adwaita-dark Default-hdpi)
+ICON=$(pick /usr/share/icons Flat-Remix-Orange-Dark Papirus-Dark Flat-Remix-Dark kali Adwaita)
+[ -n "${GTK:-}" ]  && xfconf-query -c xsettings -p /Net/ThemeName     -s "$GTK"  2>/dev/null && echo "${G}✅ thème $GTK${R}"
+[ -n "${WM:-}" ]   && xfconf-query -c xfwm4     -p /general/theme     -s "$WM"   2>/dev/null
+[ -n "${ICON:-}" ] && xfconf-query -c xsettings -p /Net/IconThemeName -s "$ICON" 2>/dev/null && echo "${G}✅ icônes $ICON${R}"
+
+# 3) Recharge le bureau
+command -v xfdesktop >/dev/null 2>&1 && xfdesktop --reload >/dev/null 2>&1 &
+echo "${G}Fait !${R} ${D}Si rien ne change : clic droit sur le bureau → Bureau → recharger (ou relance KeX).${R}"
