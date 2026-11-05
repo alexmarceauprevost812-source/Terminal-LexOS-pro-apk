@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
 # =====================================================================
 #  kali — ouvre l'invite Kali (conteneur « kali-lexos ») dans le terminal.
-#  Trouve distrobox où qu'il soit (y compris sur la clé USB LexOS Nomad),
-#  sinon se replie sur podman.
+#  Cherche distrobox/podman tout seul — PATH normal, /usr/local, /opt, et
+#  surtout les montages USB (LexOS Nomad). Sinon se replie sur podman.
 #    kali            -> shell Kali (sortir : exit)
 #    kali <commande> -> lance une commande dans Kali (ex: kali nmap -h)
 # =====================================================================
 set -u
 
-# 1) Trouver distrobox
-DB=""
-for c in distrobox distrobox-enter; do
-  command -v "$c" >/dev/null 2>&1 && { DB="$(command -v "$c")"; break; }
-done
-if [ -z "$DB" ]; then
-  for d in /usr/local/bin /opt/distrobox/bin \
-           /media/*/*/distrobox/bin /run/media/*/*/distrobox/bin \
-           /media/*/* /run/media/*/* ; do
-    [ -x "$d/distrobox" ] && { DB="$d/distrobox"; break; }
+find_bin() { # $1 = nom du binaire
+  local n="$1" p
+  p="$(command -v "$n" 2>/dev/null)" && { printf '%s' "$p"; return; }
+  for d in /usr/local/bin /usr/bin /usr/sbin /opt/*/bin; do
+    [ -x "$d/$n" ] && { printf '%s' "$d/$n"; return; }
   done
-fi
+  # Montages USB / amovibles (LexOS Nomad) — recherche bornée
+  p="$(find /media /run/media /mnt -maxdepth 6 -type f -name "$n" 2>/dev/null | head -n1)"
+  [ -n "$p" ] && printf '%s' "$p"
+}
 
-# Locale propre (évite les avertissements fr_CA manquante dans Kali) + shell
-# interactif qui NE lit PAS le .bashrc partagé de l'hôte (qui faisait ressortir).
+DB="$(find_bin distrobox)"
+[ -z "$DB" ] && DB="$(find_bin distrobox-enter)"
+PODMAN="$(find_bin podman)"
+
+# distrobox a besoin de podman dans le PATH : on ajoute leurs dossiers.
+[ -n "$DB" ]     && PATH="$(dirname "$DB"):$PATH"
+[ -n "$PODMAN" ] && PATH="$(dirname "$PODMAN"):$PATH"
+export PATH
+
 PRE='export LANG=C.UTF-8 LC_ALL=C.UTF-8;'
 SHELL_CMD="bash --norc -i"
 
-# 2) Entrer dans Kali via distrobox
+# 1) distrobox
 if [ -n "$DB" ]; then
   case "$DB" in
     *distrobox-enter)
@@ -38,12 +43,13 @@ if [ -n "$DB" ]; then
   esac
 fi
 
-# 3) Repli : podman directement
-if command -v podman >/dev/null 2>&1; then
-  podman start kali-lexos >/dev/null 2>&1 || true
-  if [ "$#" -gt 0 ]; then exec podman exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos "$@"
-  else exec podman exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos bash --norc -i; fi
+# 2) Repli : podman directement
+if [ -n "$PODMAN" ]; then
+  "$PODMAN" start kali-lexos >/dev/null 2>&1 || true
+  if [ "$#" -gt 0 ]; then exec "$PODMAN" exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos "$@"
+  else exec "$PODMAN" exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos bash --norc -i; fi
 fi
 
-echo "distrobox et podman introuvables — la clé USB LexOS est-elle branchée ?" >&2
+echo "podman/distrobox introuvables (même sur les clés USB)." >&2
+echo "La clé USB LexOS est-elle branchée et montée ? Sinon ouvre Kali avec Ctrl+Alt+K." >&2
 exit 1
