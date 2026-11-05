@@ -21,20 +21,28 @@ if [ -z "$DB" ]; then
   done
 fi
 
+# Locale propre (évite les avertissements fr_CA manquante dans Kali) + shell
+# interactif qui NE lit PAS le .bashrc partagé de l'hôte (qui faisait ressortir).
+PRE='export LANG=C.UTF-8 LC_ALL=C.UTF-8;'
+SHELL_CMD="bash --norc -i"
+
 # 2) Entrer dans Kali via distrobox
 if [ -n "$DB" ]; then
   case "$DB" in
     *distrobox-enter)
-      if [ "$#" -gt 0 ]; then exec "$DB" kali-lexos -- "$@"; else exec "$DB" kali-lexos; fi ;;
+      if [ "$#" -gt 0 ]; then exec "$DB" kali-lexos -- bash -lc "$PRE $*"
+      else exec "$DB" kali-lexos -- bash -lc "$PRE exec $SHELL_CMD"; fi ;;
     *)
-      if [ "$#" -gt 0 ]; then exec "$DB" enter kali-lexos -- "$@"; else exec "$DB" enter kali-lexos; fi ;;
+      if [ "$#" -gt 0 ]; then exec "$DB" enter kali-lexos -- bash -lc "$PRE $*"
+      else exec "$DB" enter kali-lexos -- bash -lc "$PRE exec $SHELL_CMD"; fi ;;
   esac
 fi
 
 # 3) Repli : podman directement
 if command -v podman >/dev/null 2>&1; then
   podman start kali-lexos >/dev/null 2>&1 || true
-  if [ "$#" -gt 0 ]; then exec podman exec -it kali-lexos "$@"; else exec podman exec -it kali-lexos bash; fi
+  if [ "$#" -gt 0 ]; then exec podman exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos "$@"
+  else exec podman exec -it -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 kali-lexos bash --norc -i; fi
 fi
 
 echo "distrobox et podman introuvables — la clé USB LexOS est-elle branchée ?" >&2
