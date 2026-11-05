@@ -2,16 +2,39 @@
 # =====================================================================
 #  kali — entre dans Kali NetHunter.   kali -r = root (corrige le DNS).
 #  Pas encore installé ? -> lexos kali  (ou menu → Installer Kali).
+#  Affiche une bannière LexOS en haut quand on entre (pas pour une
+#  commande directe type « kali -r nmap »).
 # =====================================================================
+O=$'\e[1;38;2;255;135;0m'; D=$'\e[2m'; R=$'\e[0m'
+
+banniere() {
+  # Seulement en interactif (pas quand on passe une commande à lancer)
+  [ -t 1 ] || return 0
+  printf '%s █       █████  █   █   ███    ████ %s\n' "$O" "$R"
+  printf '%s █       █       █ █   █   █  █     %s\n' "$O" "$R"
+  printf '%s █       ████     █    █   █   ███  %s\n' "$O" "$R"
+  printf '%s █       █       █ █   █   █      █ %s\n' "$O" "$R"
+  printf '%s █████   █████  █   █   ███    ████ %s\n' "$O" "$R"
+  printf '%s ───────────────────────────────── %s\n' "$D" "$R"
+  printf '%s❯_ KALI%s %s· caché derrière%s %sLexOS%s %s· cibles autorisées%s\n\n' \
+    "$O" "$R" "$D" "$R" "$O" "$R" "$D" "$R"
+}
+
 if ! command -v nethunter >/dev/null 2>&1; then
-    O=$'\e[1;38;2;248;120;0m'; R=$'\e[0m'
     echo "Kali n'est pas installé. Installe-le : ${O}lexos kali${R}" >&2
     exit 1
 fi
 
 fix_dns() { nethunter -r sh -c "printf 'nameserver 8.8.8.8\n' > /etc/resolv.conf" 2>/dev/null; }
 
+# Entrée root : kali -r / kali root
 if [ "${1:-}" = "-r" ] || [ "${1:-}" = "root" ]; then
-    shift; fix_dns; exec nethunter -r "$@"
+    shift
+    # Pas d'argument = on ENTRE dans Kali -> bannière ; sinon commande directe.
+    [ "$#" -eq 0 ] && banniere
+    fix_dns; exec nethunter -r "$@"
 fi
+
+# Entrée simple : bannière seulement si on entre (pas de commande)
+[ "$#" -eq 0 ] && banniere
 exec nethunter "$@"
