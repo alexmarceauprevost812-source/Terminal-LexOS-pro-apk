@@ -4,6 +4,10 @@
 export PATH="$HOME/bin:$PATH"
 alias lex=aide
 
+# Nom affiché dans l'invite (modifiable : « lexos nom <ton-nom> »)
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+: "${LEXOS_NAME:=ti-lex}"
+
 # Coloration syntaxique de la ligne de commande quand tu tapes (si ble.sh présent)
 if [[ $- == *i* ]] && [ -f "$PREFIX/share/blesh/ble.sh" ]; then
     source "$PREFIX/share/blesh/ble.sh" --noattach
@@ -40,14 +44,20 @@ export LESS_TERMCAP_ue=$'\e[0m'
 export LESS_TERMCAP_se=$'\e[0m'
 
 # ---- Invite : dossier orange + branche git cyan + flèche verte/rouge selon le résultat ----
+#   ╭──(ti-lex-al)─[~]
+#   ╰─(lexos)──➜
+# Le nom entre parenthèses vient de LEXOS_NAME (change-le : « lexos nom X »).
 __lexos_ps1() {
     local e=$?
-    local o=$'\[\e[38;2;248;120;0m\]' cy=$'\[\e[38;2;54;198;224m\]' z=$'\[\e[0m\]'
-    local ok=$'\[\e[1;38;2;248;120;0m\]' ko=$'\[\e[1;31m\]'
+    local name="${LEXOS_NAME:-ti-lex}"
+    local o=$'\[\e[1;38;2;248;120;0m\]'   # orange gras (ton nom)
+    local g=$'\[\e[1;38;2;118;185;0m\]'   # vert lime (lexos)
+    local cy=$'\[\e[38;2;54;198;224m\]'   # cyan (dossier)
+    local d=$'\[\e[2m\]' z=$'\[\e[0m\]' ko=$'\[\e[1;31m\]'
     local br="" b
     b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && br=" ${cy}(${b})${z}"
-    local arrow; [ "$e" -eq 0 ] && arrow="${ok}❯${z}" || arrow="${ko}❯${z}"
-    PS1="${o}\w${z}${br} ${arrow} "
+    local arrow; [ "$e" -eq 0 ] && arrow="${g}➜${z}" || arrow="${ko}➜${z}"
+    PS1="${d}╭──(${z}${o}${name}${z}${d})─[${z}${cy}\w${z}${d}]${z}${br}\n${d}╰─(${z}${g}lexos${z}${d})──${z}${arrow} "
 }
 PROMPT_COMMAND=__lexos_ps1
 
