@@ -116,13 +116,9 @@ jobs:
           cp "$APK" "LexOS-Pro.apk"
           echo "path=LexOS-Pro.apk" >> "$GITHUB_OUTPUT"
 
-      - name: Publier l'APK en artifact (téléchargeable depuis cette exécution)
-        uses: actions/upload-artifact@v4
-        with:
-          name: LexOS-Pro-APK
-          path: LexOS-Pro.apk
-          if-no-files-found: error
-
+      # On publie d'ABORD la Release (stockage séparé, toujours dispo) : c'est
+      # le lien d'installation « latest ». L'artifact Actions vient ensuite et
+      # ne peut plus faire échouer le build (quota plein = simple avertissement).
       - name: Publier la Release « latest » (mises à jour)
         if: github.ref == 'refs/heads/claude' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
@@ -137,3 +133,14 @@ jobs:
             Build #${{ github.run_number }} — commit ${{ github.sha }}
           files: LexOS-Pro.apk
           make_latest: true
+
+      # Copie pratique dans l'onglet Actions. Non bloquant : si le quota
+      # d'artifacts est plein, on garde juste la Release ci-dessus.
+      - name: Copie en artifact (facultatif, non bloquant)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: LexOS-Pro-APK
+          path: LexOS-Pro.apk
+          if-no-files-found: warn
+          retention-days: 2
