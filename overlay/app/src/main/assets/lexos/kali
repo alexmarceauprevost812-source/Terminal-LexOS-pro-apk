@@ -10,6 +10,12 @@ O=$'\e[1;38;2;255;135;0m'; D=$'\e[2m'; R=$'\e[0m'
 banniere() {
   # Seulement en interactif (pas quand on passe une commande à lancer)
   [ -t 1 ] || return 0
+  # Logo LexOS (hacker à capuche orange) en image, si chafa est là.
+  if command -v chafa >/dev/null 2>&1; then
+    for img in "$HOME/.lexos/menu-gauche.png" "$HOME/.lexos/banner.png" "$HOME/.lexos/avatar.png"; do
+      [ -f "$img" ] && { chafa --center on --size=28x14 "$img" 2>/dev/null; break; }
+    done
+  fi
   printf '%s █       █████  █   █   ███    ████ %s\n' "$O" "$R"
   printf '%s █       █       █ █   █   █  █     %s\n' "$O" "$R"
   printf '%s █       ████     █    █   █   ███  %s\n' "$O" "$R"
