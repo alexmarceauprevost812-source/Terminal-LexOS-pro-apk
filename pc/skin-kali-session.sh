@@ -16,17 +16,29 @@ done
 command -v xfconf-query >/dev/null 2>&1 || exit 0
 
 # --- Fond d'écran LexOS -------------------------------------------------------
+#  IMPORTANT : xfdesktop affiche le fond via last-image MAIS AUSSI
+#  last-single-image et image-path. Si on ne change que last-image, l'ancien
+#  fond (dragon) revient au rechargement. On règle donc LES TROIS.
 if [ -f "$WP" ]; then
   applied=0
-  while read -r p; do
-    [ -n "$p" ] || continue
-    xfconf-query -c xfce4-desktop -p "$p" -s "$WP" 2>/dev/null
-    xfconf-query -c xfce4-desktop -p "${p%last-image}image-style" -s 5 2>/dev/null || true
-    applied=1
-  done < <(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image)
-  # Premier démarrage : aucune propriété encore → on crée pour l'écran Xephyr.
+  # Toutes les propriétés d'image existantes -> le fond LexOS
+  for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E 'last-image|last-single-image|image-path'); do
+    xfconf-query -c xfce4-desktop -p "$p" -s "$WP" 2>/dev/null && applied=1
+  done
+  # Styles : 5 = recadrer pour remplir ; image-show = true
+  for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'image-style'); do
+    xfconf-query -c xfce4-desktop -p "$p" -s 5 2>/dev/null
+  done
+  for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep 'image-show'); do
+    xfconf-query -c xfce4-desktop -p "$p" -s true 2>/dev/null
+  done
+  # Coupe un éventuel diaporama qui remettrait le dragon
+  for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -i 'cycle'); do
+    xfconf-query -c xfce4-desktop -p "$p" -s false 2>/dev/null
+  done
+  # Premier démarrage : aucune propriété encore → on crée pour l'écran courant.
   if [ "$applied" = 0 ]; then
-    for mon in monitorscreen monitordefault "monitorXephyr Window" monitor0; do
+    for mon in monitorscreen monitordefault monitor0 "monitorXephyr Window"; do
       base="/backdrop/screen0/${mon}/workspace0"
       xfconf-query -c xfce4-desktop -p "$base/last-image"  -n -t string -s "$WP" 2>/dev/null || true
       xfconf-query -c xfce4-desktop -p "$base/image-style" -n -t int    -s 5    2>/dev/null || true
