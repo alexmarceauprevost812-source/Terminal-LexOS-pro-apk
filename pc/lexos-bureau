@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# =====================================================================
+#  lexos-bureau — pilote la souris/clavier du PC depuis le téléphone.
+#  Le téléphone scanne un QR, ouvre une page « pavé tactile + clavier »,
+#  et contrôle le PC. L'écran du PC reste l'écran. (Même Wi-Fi.)
+#    lexos-bureau            démarre (coin : QR + serveur)
+#  Ctrl-C pour arrêter.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+PORT="${LEXOS_BUREAU_PORT:-8090}"
+
+# Détection X11 / Wayland
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+  BACKEND=wayland
+else
+  BACKEND=x11
+fi
+
+# Dépendances
+PY="$(command -v python3 || command -v python || true)"
+[ -z "$PY" ] && { sudo apt-get install -y python3 >/dev/null 2>&1 || true; PY="$(command -v python3 || true)"; }
+command -v qrencode >/dev/null 2>&1 || sudo apt-get install -y qrencode >/dev/null 2>&1 || true
+if [ "$BACKEND" = "x11" ]; then
+  command -v xdotool >/dev/null 2>&1 || { echo "${O}Installation de xdotool…${R}"; sudo apt-get install -y xdotool >/dev/null 2>&1 || true; }
+else
+  command -v ydotool >/dev/null 2>&1 || { echo "${O}Installation de ydotool…${R}"; sudo apt-get install -y ydotool >/dev/null 2>&1 || true; }
+  command -v ydotoold >/dev/null 2>&1 && { pgrep -x ydotoold >/dev/null 2>&1 || (sudo ydotoold >/dev/null 2>&1 &) ; }
+  echo "${D}(Wayland : si rien ne bouge, ouvre une session « Xorg » au login — xdotool est plus fiable.)${R}"
+fi
+[ -z "$PY" ] && { echo "${RED}Python requis et introuvable.${R}"; exit 1; }
+
+# IP locale
+IP=$(ip -4 addr 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | grep -vE '^127\.' | head -n1)
+[ -z "$IP" ] && { echo "${RED}Pas d'adresse Wi-Fi trouvée (connecté au Wi-Fi ?).${R}"; exit 1; }
+
+# Écrit le serveur
+SRV="$HOME/.lexos/bureau-server.py"; mkdir -p "$HOME/.lexos"
+cat > "$SRV" <<'PYEOF'
+#!/usr/bin/env python3
+import http.server, socketserver, subprocess, sys
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8090
+BACKEND = sys.argv[2] if len(sys.argv) > 2 else "x11"
+def run(c):
+    try: subprocess.run(c, check=False)
+    except Exception as e: print("err:", e)
+def move(dx,dy):
+    run(["ydotool","mousemove","--","%d"%dx,"%d"%dy]) if BACKEND=="wayland" else run(["xdotool","mousemove_relative","--","%d"%dx,"%d"%dy])
+def click(b):
+    if BACKEND=="wayland": run(["ydotool","click",{"1":"0xC0","3":"0x90","2":"0xA0"}.get(b,"0xC0")])
+    else: run(["xdotool","click",b])
+def scroll(d):
+    if BACKEND!="wayland": run(["xdotool","click","4" if d=="up" else "5"])
+def key(k): run(["ydotool","key",k]) if BACKEND=="wayland" else run(["xdotool","key",k])
+def typ(t): run(["ydotool","type","--",t]) if BACKEND=="wayland" else run(["xdotool","type","--",t])
+PAGE = b'''<!doctype html><html><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>LexOS telecommande</title><style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b0b0b;color:#eee;font-family:sans-serif;height:100vh;display:flex;flex-direction:column}
+h1{font-size:15px;color:#ff8700;text-align:center;margin:8px}
+#pad{flex:1;margin:0 10px;border:1px solid #333;border-radius:14px;background:#141414;touch-action:none;display:flex;align-items:center;justify-content:center;color:#555}
+.row{display:flex;gap:8px;padding:8px 10px}
+button{flex:1;padding:14px;font-size:15px;border:0;border-radius:10px;background:#1f1f1f;color:#eee}
+button:active{background:#ff8700;color:#000}
+input{flex:3;padding:12px;border-radius:10px;border:1px solid #333;background:#141414;color:#eee;font-size:15px}
+</style></head><body>
+<h1>LexOS - telecommande du PC</h1>
+<div id=pad>deplace ton doigt ici (clic = tape)</div>
+<div class=row>
+ <button onclick="C('1')">Clic gauche</button><button onclick="C('3')">Clic droit</button>
+ <button onclick="S('up')">Defiler haut</button><button onclick="S('down')">Defiler bas</button>
+</div>
+<div class=row>
+ <input id=t placeholder="taper du texte..." autocomplete=off autocapitalize=off>
+ <button onclick="T()">Envoyer</button>
+</div>
+<div class=row>
+ <button onclick="K('Return')">Entree</button><button onclick="K('BackSpace')">Efface</button>
+ <button onclick="K('Tab')">Tab</button><button onclick="K('Escape')">Echap</button>
+</div>
+<div class=row>
+ <button onclick="K('Up')">haut</button><button onclick="K('Down')">bas</button>
+ <button onclick="K('Left')">gauche</button><button onclick="K('Right')">droite</button>
+</div>
+<script>
+function P(u,b){fetch(u,{method:'POST',body:b||''})}
+function C(b){P('/c',b)} function S(d){P('/s',d)} function K(k){P('/k',k)}
+function T(){var e=document.getElementById('t');if(e.value){P('/t',e.value);e.value=''}}
+var pad=document.getElementById('pad'),lx=0,ly=0,moved=false,down=false;
+function xy(e){var t=e.touches?e.touches[0]:e;return[t.clientX,t.clientY]}
+pad.addEventListener('pointerdown',function(e){down=true;moved=false;var p=xy(e);lx=p[0];ly=p[1];e.preventDefault()});
+pad.addEventListener('pointermove',function(e){if(!down)return;var p=xy(e);var dx=p[0]-lx,dy=p[1]-ly;lx=p[0];ly=p[1];if(Math.abs(dx)+Math.abs(dy)>1){moved=true;P('/m',dx+','+dy)}e.preventDefault()});
+pad.addEventListener('pointerup',function(e){down=false;if(!moved)C('1');e.preventDefault()});
+</script></body></html>'''
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self,*a): pass
+    def _ok(self,b=b'ok'):
+        self.send_response(200); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_GET(self):
+        if self.path=="/":
+            self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8")
+            self.send_header("Content-Length",str(len(PAGE))); self.end_headers(); self.wfile.write(PAGE)
+        else: self._ok()
+    def do_POST(self):
+        n=int(self.headers.get("Content-Length",0)); d=self.rfile.read(n).decode("utf-8","ignore"); p=self.path
+        if p=="/m":
+            try: a,b=d.split(","); move(int(float(a)),int(float(b)))
+            except Exception: pass
+        elif p=="/c": click(d or "1")
+        elif p=="/s": scroll(d or "down")
+        elif p=="/k": key(d or "Return")
+        elif p=="/t": typ(d)
+        self._ok()
+with socketserver.TCPServer(("",PORT),H) as s:
+    print("ok"); s.serve_forever()
+PYEOF
+
+URL="http://$IP:$PORT/"
+clear 2>/dev/null
+echo "${O}❯_ LexOS${R} Télécommande du PC  ${D}(backend: $BACKEND)${R}"
+echo
+command -v qrencode >/dev/null 2>&1 && { echo "${G}Scanne avec le téléphone :${R}"; echo; qrencode -m 1 -t ANSIUTF8 "$URL"; echo; }
+echo "${O}Adresse :${R} ${G}$URL${R}"
+echo "${D}Ouvre-la sur le téléphone (même Wi-Fi). Glisse sur le pavé = souris, tape = clic.${R}"
+echo "${D}Ctrl-C pour arrêter.${R}"
+echo
+exec "$PY" "$SRV" "$PORT" "$BACKEND"

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# =====================================================================
+#  tilex — connecter facilement le téléphone et le PC.
+#  Un seul menu : partage de fichier (QR), partage d'écran, télécommande.
+#  Réutilise les outils déjà présents (lexos share/ecran-telephone/distant)
+#  + lexos-bureau. Ne touche PAS au menu « lexos ».
+#    Tape simplement :  tilex
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; CY=$'\e[38;2;54;198;224m'
+D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+
+has() { command -v "$1" >/dev/null 2>&1; }
+pause() { printf "\n%s— Entrée pour revenir —%s " "$D" "$R"; read -r _ || exit 0; }
+
+banniere() {
+  printf "%s╭────────────────────────────╮%s\n" "$O" "$R"
+  printf "%s│%s  %s❯_ ti-lex%s  ·  mes appareils   %s│%s\n" "$O" "$R" "$O" "$R" "$O" "$R"
+  printf "%s╰────────────────────────────╯%s\n" "$O" "$R"
+}
+
+# 1) Partage de fichier (QR)
+partage_fichier() {
+  clear 2>/dev/null; banniere
+  printf "\n%s📁 Partage de fichier%s\n" "$O" "$R"
+  printf "   %s1%s  Envoyer un fichier (QR à scanner)\n" "$O" "$R"
+  printf "   %s2%s  Recevoir un fichier\n" "$O" "$R"
+  printf "\n%stilex ❯%s " "$O" "$R"; read -r s || return
+  case "$s" in
+    1) printf "%sChemin du fichier ❯%s " "$O" "$R"; read -r f || return
+       if has lexos; then lexos share "$f"; else echo "${RED}Commande « lexos share » absente.${R}"; fi ;;
+    2) if has lexos; then lexos receive; else echo "${RED}Commande « lexos receive » absente.${R}"; fi ;;
+  esac
+}
+
+# 2) Partage d'écran
+partage_ecran() {
+  clear 2>/dev/null; banniere
+  printf "\n%s🖥️  Partage d'écran%s\n" "$O" "$R"
+  printf "   %s1%s  Voir l'écran du téléphone sur le PC\n" "$O" "$R"
+  printf "   %s2%s  Partager MON écran (le téléphone voit le PC)\n" "$O" "$R"
+  printf "\n%stilex ❯%s " "$O" "$R"; read -r s || return
+  case "$s" in
+    1) if has lexos; then lexos ecran-telephone; else echo "${RED}« lexos ecran-telephone » absent.${R}"; fi ;;
+    2) if has lexos; then lexos distant partager; else echo "${RED}« lexos distant partager » absent.${R}"; fi ;;
+  esac
+}
+
+# 3) Télécommande (le téléphone pilote le PC)
+telecommande() {
+  clear 2>/dev/null; banniere
+  printf "\n%s🎮 Télécommande — le téléphone pilote la souris + le clavier du PC%s\n\n" "$O" "$R"
+  if has lexos-bureau; then
+    lexos-bureau
+  else
+    echo "${RED}« lexos-bureau » n'est pas installé.${R}"
+    echo "${D}Installe-le :${R} ${O}curl -fsSL https://raw.githubusercontent.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk/main/pc/lexos-bureau -o ~/bin/lexos-bureau && chmod +x ~/bin/lexos-bureau${R}"
+  fi
+}
+
+while :; do
+  clear 2>/dev/null; banniere
+  printf "\n   %s1%s  📁 Partage de fichier  %s(QR)%s\n" "$O" "$R" "$D" "$R"
+  printf   "   %s2%s  🖥️  Partage d'écran\n" "$O" "$R"
+  printf   "   %s3%s  🎮 Télécommande  %s(téléphone → PC)%s\n" "$O" "$R" "$D" "$R"
+  printf   "   %s0%s  Quitter\n" "$O" "$R"
+  printf "\n%s(Astuce : garde le téléphone et le PC sur le même Wi-Fi.)%s\n" "$D" "$R"
+  printf "\n%sti-lex ❯%s ton choix : " "$O" "$R"
+  read -r c || break
+  case "$c" in
+    1) partage_fichier; pause ;;
+    2) partage_ecran; pause ;;
+    3) telecommande; pause ;;
+    0|q|quit|exit|"") break ;;
+    *) printf "%sChoix inconnu.%s\n" "$RED" "$R"; sleep 1 ;;
+  esac
+done
