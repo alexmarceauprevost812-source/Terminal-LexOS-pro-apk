@@ -46,15 +46,19 @@ jobs:
           LEXOS_KEYSTORE_B64: ${{ secrets.LEXOS_KEYSTORE_B64 }}
         run: |
           if [ -n "$LEXOS_KEYSTORE_B64" ]; then
-            printf '%s' "$LEXOS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/lexos-release.keystore"
-            echo "store=$RUNNER_TEMP/lexos-release.keystore" >> "$GITHUB_OUTPUT"
-            echo "signed=1" >> "$GITHUB_OUTPUT"
-            echo "Keystore release (secret) prêt -> build signé release."
+            printf '%s' "$LEXOS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/lexos.keystore"
+            echo "store=$RUNNER_TEMP/lexos.keystore" >> "$GITHUB_OUTPUT"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+            echo "Clé release (secret) -> build signé release."
           else
-            echo "signed=0" >> "$GITHUB_OUTPUT"
-            echo "Pas de secret : build debug signé avec la clé de test stable intégrée"
-            echo "(signature identique à chaque build -> les mises à jour s'installent par-dessus)."
-            echo "Pour ta propre clé (ex. depuis Windows), voir SIGNING.md."
+            # REPLI STABLE : on utilise la clé commune du dépôt (lexos-debug.keystore)
+            # pour que TOUS les builds aient la MÊME signature -> les mises à jour
+            # s'installent par-dessus. (Sans ça, assembleDebug prend une clé au
+            # hasard par build -> « Appli non installée ».)
+            cp "$GITHUB_WORKSPACE/lexos/keystore/lexos-debug.keystore" "$RUNNER_TEMP/lexos.keystore"
+            echo "store=$RUNNER_TEMP/lexos.keystore" >> "$GITHUB_OUTPUT"
+            echo "mode=stable" >> "$GITHUB_OUTPUT"
+            echo "::warning::Pas de secret release -> signé avec la clé stable du dépôt (lexos-debug.keystore). Les mises à jour fonctionnent. Pour une vraie clé release, voir SIGNING.md."
           fi
 
       - name: Numéro de version (monte à chaque build)
@@ -89,9 +93,11 @@ jobs:
         working-directory: termux-app
         env:
           LEXOS_STORE_FILE: ${{ steps.keystore.outputs.store }}
-          LEXOS_STORE_PASSWORD: ${{ secrets.LEXOS_KEYSTORE_PASSWORD }}
-          LEXOS_KEY_ALIAS: ${{ secrets.LEXOS_KEY_ALIAS }}
-          LEXOS_KEY_PASSWORD: ${{ secrets.LEXOS_KEY_PASSWORD }}
+          # Mots de passe : ceux du secret en mode release, sinon ceux de la clé
+          # commune du dépôt (storepass/keypass = android, alias androiddebugkey).
+          LEXOS_STORE_PASSWORD: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEYSTORE_PASSWORD || 'android' }}
+          LEXOS_KEY_ALIAS: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEY_ALIAS || 'androiddebugkey' }}
+          LEXOS_KEY_PASSWORD: ${{ steps.keystore.outputs.mode == 'release' && secrets.LEXOS_KEY_PASSWORD || 'android' }}
           LEXOS_VERSION_CODE: ${{ steps.vc.outputs.code }}
           TERMUX_APP_VERSION_NAME: ${{ steps.vc.outputs.name }}
           TERMUX_APK_VERSION_TAG: lexos-${{ steps.vc.outputs.name }}
@@ -99,11 +105,9 @@ jobs:
           TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: "0"
         run: |
           chmod +x gradlew
-          if [ "${{ steps.keystore.outputs.signed }}" = "1" ]; then
-            ./gradlew assembleRelease --stacktrace --no-daemon
-          else
-            ./gradlew assembleDebug --stacktrace --no-daemon
-          fi
+          # TOUJOURS assembleRelease : signé avec une clé STABLE (secret ou clé
+          # commune du dépôt) -> même signature à chaque build -> mises à jour OK.
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Repérer l'APK produit (universal / arm64)
         id: apk
