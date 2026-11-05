@@ -32,7 +32,7 @@ public final class LexosSetup {
     private static final String LOG_TAG = "LexosSetup";
 
     /** À incrémenter quand aide/lexos.sh/couleurs changent, pour forcer le redéploiement. */
-    private static final int LEXOS_SETUP_VERSION = 27;
+    private static final int LEXOS_SETUP_VERSION = 28;
 
     private static final String HOME = TermuxConstants.TERMUX_HOME_DIR_PATH;
 
@@ -70,6 +70,7 @@ public final class LexosSetup {
             installExecutable(context, "lexos/kali", new File(bin, "kali"));
             installExecutable(context, "lexos/catalogue", new File(bin, "catalogue"));
             installExecutable(context, "lexos/lexos-facile", new File(bin, "lexos-facile"));
+            installExecutable(context, "lexos/lexos-partage", new File(bin, "lexos-partage"));
 
             copyAsset(context, "lexos/lexos.sh", new File(lexosDir, "lexos.sh"));
             copyAsset(context, "lexos/banner.txt", new File(lexosDir, "banner.txt"));

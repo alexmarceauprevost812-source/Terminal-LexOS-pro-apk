@@ -1,0 +1,55 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-partage — partage LexOS Pro par QR code.
+#  Affiche un QR du lien d'installation : l'ami le scanne avec l'appareil
+#  photo, ça ouvre le téléchargement de l'APK.
+#  Menu → « Partager LexOS » (ou : lexos partage).
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'   # orange LexOS
+G=$'\e[1;38;2;118;185;0m'   # vert lime
+D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+
+URL_APK="https://github.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk/releases/latest/download/LexOS-Pro.apk"
+URL_PAGE="https://github.com/alexmarceauprevost812-source/Terminal-LexOS-pro-apk/releases/latest"
+
+clear 2>/dev/null
+# En-tête image si dispo (sinon titre simple)
+if command -v lexos-header >/dev/null 2>&1; then
+    lexos-header "PARTAGER LEXOS" 2>/dev/null
+else
+    printf "%s❯_ LexOS Pro%s %s· partager%s\n" "$O" "$R" "$D" "$R"
+fi
+echo
+
+# qrencode : installe si absent (couche d'affichage, sans danger)
+if ! command -v qrencode >/dev/null 2>&1; then
+    printf "%sInstallation de l'outil QR (une fois)…%s\n" "$D" "$R"
+    pkg install -y qrencode >/dev/null 2>&1 || true
+fi
+
+if command -v qrencode >/dev/null 2>&1; then
+    printf "%sScanne ce code avec l'appareil photo du téléphone :%s\n\n" "$G" "$R"
+    qrencode -m 1 -t ANSIUTF8 "$URL_APK"
+    echo
+else
+    printf "%sOutil QR indisponible (pas de réseau ?). Partage le lien ci-dessous.%s\n\n" "$RED" "$R"
+fi
+
+printf "%sLien d'installation directe :%s\n  %s%s%s\n\n" "$O" "$R" "$G" "$URL_APK" "$R"
+printf "%sOu la page des versions :%s\n  %s%s%s\n" "$D" "$R" "$G" "$URL_PAGE" "$R"
+
+# Copier le lien dans le presse-papier (si termux-api présent)
+if command -v termux-clipboard-set >/dev/null 2>&1; then
+    printf '%s' "$URL_APK" | termux-clipboard-set 2>/dev/null && \
+        printf "\n%s✅ Lien copié — tu peux le coller dans un message.%s\n" "$G" "$R"
+fi
+
+# Feuille de partage Android (si termux-api présent)
+if command -v termux-share >/dev/null 2>&1; then
+    printf "\n%sEnvoyer par message / réseau social ? [O/n]%s " "$O" "$R"
+    read -r rep 2>/dev/null || rep=n
+    case "$rep" in ""|o|O|y|Y) printf '%s' "$URL_APK" | termux-share -a send 2>/dev/null ;; esac
+fi
+
+printf "\n%s— Entrée pour revenir —%s " "$D" "$R"; read -r _ 2>/dev/null || true
