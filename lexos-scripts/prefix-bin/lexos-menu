@@ -8,6 +8,7 @@ O=$'\e[1;38;2;255;140;0m'     # orange LexOS
 G=$'\e[38;2;57;255;136m'      # vert
 GR=$'\e[2m'                   # gris / atténué
 RED=$'\e[1;38;2;255;77;109m'  # rouge erreur
+GOLD=$'\e[1;38;2;255;215;0m'  # jaune or — option IA Commande (mode facile)
 R=$'\e[0m'
 PFX="${PREFIX:-/data/data/com.termux/files/usr}"
 
@@ -38,6 +39,7 @@ menu() {
   printf "   %s4%s  🎨 Couleurs\n"               "$O" "$R"
   printf "   %s5%s  🔄 Mise à jour\n"            "$O" "$R"
   printf "   %s6%s  🤖 Installer / démarrer l'IA\n" "$O" "$R"
+  printf "   %s7%s  %sIA Commande%s %s— mode facile, discute en français, aucune commande exécutée%s\n" "$O" "$R" "$GOLD" "$R" "$GR" "$R"
   printf "   %s0%s  ⌨️  Mode libre — taper une commande\n" "$O" "$R"
 }
 
@@ -45,7 +47,7 @@ while :; do
   clear 2>/dev/null
   header
   menu
-  printf "\n%slexos ❯%s ton choix (0-6) : " "$O" "$R"
+  printf "\n%slexos ❯%s ton choix (0-7) : " "$O" "$R"
   read -r c || break
   case "$c" in
     1) lexos parler ;;
@@ -54,6 +56,7 @@ while :; do
     4) lexos couleurs ;;
     5) lexos maj ;;
     6) lexos ia ;;
+    7) lexos debutant ;;
     0|q|quit|exit|"") break ;;
     *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1; continue ;;
   esac

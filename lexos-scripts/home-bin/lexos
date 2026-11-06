@@ -19,6 +19,8 @@ case "${1:-}" in
         shift; exec lexos-ia "$@" ;;
     parler|parle|chat|lex|aide)
         shift; exec aide "$@" ;;
+    debutant|facile|ia-commande|iacommande)
+        shift; exec aide --chat "$@" ;;
     outils|outil|catalogue|tools)
         exec catalogue ;;
     modeles|modele|model|ia-modele)
@@ -32,6 +34,7 @@ case "${1:-}" in
         echo "  ${B}lexos menu${R}       ouvrir le menu d'accueil (1 à 6)"
         echo "  ${B}lexos ia${R}         installer / démarrer l'IA locale"
         echo "  ${B}lexos parler${R}     parler à l'IA (le codex)"
+        echo "  ${B}lexos debutant${R}   IA Commande — mode facile, discute seulement (aucune commande exécutée)"
         echo "  ${B}lexos maj${R}        mettre à jour l'application"
         echo "  ${B}lexos couleurs${R}   activer toutes les couleurs"
         echo "  ${B}lexos outils${R}     catalogue des outils de securite"

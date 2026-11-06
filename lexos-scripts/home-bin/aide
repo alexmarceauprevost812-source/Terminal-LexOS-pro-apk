@@ -281,6 +281,7 @@ case "${1:-}" in
         echo "  aide <ta question>        suggère la commande"
         echo "  aide -e <commande>        explique une commande"
         echo "  aide                      mode conversation"
+        echo "  aide --chat               IA Commande — mode facile, discute seulement, rien n'est exécuté"
         echo "  aide --serve-gguf         lance llama.cpp sur ton .gguf partagé"
         echo "  aide --install-ia         comment installer l'IA locale"
         echo ""
@@ -308,6 +309,22 @@ case "${1:-}" in
         echo "  aide --serve-gguf"
         exit 0 ;;
     --serve-gguf) serve_gguf ;;
+    --chat|-c|chat)
+        # IA Commande — mode facile pour débutants : discussion seulement,
+        # aucune commande n'est jamais extraite ni exécutée dans ce mode.
+        need_dep; check_backend; banner
+        echo "${BLEU}IA Commande${R} ${D}— mode facile : on discute, rien n'est exécuté.${R}"
+        echo "${D}Pour le mode complet (suggestions de commandes) : lexos parler${R}"
+        while :; do
+            printf "${BLEU}toi ❯ ${R}"; read -r q || break
+            case "$q" in
+                q|quit|exit|/q|/quit|/exit) break ;;
+                "") continue ;;
+            esac
+            __say
+            ask "$SYSTEM_CHAT" "$q"; echo
+        done
+        echo "${D}À la prochaine.${R}"; exit 0 ;;
     -e|--explique)
         shift; need_dep; check_backend; banner
         [ $# -eq 0 ] && { echo "Donne une commande à expliquer."; exit 1; }
