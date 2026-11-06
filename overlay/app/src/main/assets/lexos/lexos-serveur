@@ -1,0 +1,82 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-serveur — partage un DOSSIER entier en HTTP sur ton Wi-Fi.
+#    lexos serveur            partage le dossier où tu es
+#    lexos serveur <dossier>  partage ce dossier
+#  Depuis le PC (même Wi-Fi) : ouvre l'adresse affichée dans un navigateur
+#  ou scanne le QR. Tu vois la liste des fichiers et tu les télécharges.
+#  Pour envoyer UN fichier : lexos fichier   ·   pour en RECEVOIR : lexos recevoir
+#  Menu → « Serveur de partage »  (ou : lexos serveur)
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; D=$'\e[2m'; RED=$'\e[1;31m'; Y=$'\e[1;33m'; R=$'\e[0m'
+
+PORT="${LEXOS_SERVEUR_PORT:-8000}"
+DIR="${1:-$PWD}"
+
+[ -d "$DIR" ] || { echo "${RED}Dossier introuvable : $DIR${R}"; exit 1; }
+DIR="$(cd "$DIR" && pwd)"
+
+PY="$(command -v python3 || command -v python || true)"
+if [ -z "$PY" ]; then
+    echo "${D}Installation de Python (une fois)…${R}"
+    pkg install -y python >/dev/null 2>&1 || true
+    PY="$(command -v python3 || command -v python || true)"
+fi
+[ -z "$PY" ] && { echo "${RED}Python requis et introuvable. Fais : pkg install python${R}"; exit 1; }
+command -v qrencode >/dev/null 2>&1 || { echo "${D}Installation de l'outil QR…${R}"; pkg install -y qrencode >/dev/null 2>&1 || true; }
+
+ip_lan() {
+    local a
+    a=$(ip -4 addr show 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | grep -vE '^127\.' | head -n1)
+    [ -z "$a" ] && a=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -vE '^127\.' | head -n1)
+    printf '%s' "$a"
+}
+
+# Port déjà pris ? on prend le suivant (jusqu'à 10 essais)
+port_libre() {
+    "$PY" - "$1" <<'PYEOF'
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("0.0.0.0", int(sys.argv[1]))); sys.exit(0)
+except OSError:
+    sys.exit(1)
+finally:
+    s.close()
+PYEOF
+}
+i=0
+while ! port_libre "$PORT"; do
+    PORT=$((PORT+1)); i=$((i+1))
+    [ "$i" -ge 10 ] && { echo "${RED}Aucun port libre entre 8000 et 8010.${R}"; exit 1; }
+done
+
+IP="$(ip_lan)"
+if [ -z "$IP" ]; then
+    echo "${RED}Pas d'adresse Wi-Fi trouvée.${R} ${D}Connecte-toi à un Wi-Fi (ou active le point d'accès), puis réessaie.${R}"
+    exit 1
+fi
+URL="http://$IP:$PORT"
+
+clear 2>/dev/null
+printf "%s❯_ LexOS · SERVEUR DE PARTAGE%s\n\n" "$O" "$R"
+printf "  📂 %sDossier partagé :%s %s\n" "$O" "$R" "$DIR"
+printf "  🌐 %sAdresse :%s        %s%s%s\n\n" "$O" "$R" "$G" "$URL" "$R"
+if command -v qrencode >/dev/null 2>&1; then
+    printf "%sScanne avec l'autre appareil, ou tape l'adresse dans son navigateur :%s\n\n" "$G" "$R"
+    qrencode -m 1 -t ANSIUTF8 "$URL"
+    echo
+fi
+printf "%s⚠️  Tous les appareils sur ce Wi-Fi peuvent voir CE dossier tant que le serveur tourne.%s\n" "$Y" "$R"
+printf "%s   Les deux appareils doivent être sur le même Wi-Fi. %sCtrl-C%s%s pour arrêter.%s\n\n" "$D" "$O" "$R" "$D" "$R"
+
+# Copie l'adresse dans le presse-papier si termux-api est là
+if command -v termux-clipboard-set >/dev/null 2>&1; then
+    printf '%s' "$URL" | termux-clipboard-set 2>/dev/null && printf "%s✅ Adresse copiée.%s\n\n" "$G" "$R"
+fi
+
+cd "$DIR" || exit 1
+trap 'printf "\n%sServeur arrêté. Partage terminé.%s\n" "$D" "$R"; exit 0' INT TERM
+# --bind 0.0.0.0 : visible sur le Wi-Fi ; les accès s'affichent ci-dessous
+exec "$PY" -m http.server "$PORT" --bind 0.0.0.0

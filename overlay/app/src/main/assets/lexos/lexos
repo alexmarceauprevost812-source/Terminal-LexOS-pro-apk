@@ -27,6 +27,8 @@ case "${1:-}" in
         shift; exec apprendre "$@" ;;
     info|infos|systeme|système|etat|état)
         exec lexos-info ;;
+    serveur|serve|http|dossier)
+        shift; exec lexos-serveur "$@" ;;
     profil|bienvenue|config-depart)
         exec lexos-bienvenue ;;
     explique|expliquer|explications)
@@ -77,6 +79,7 @@ case "${1:-}" in
         echo "  ${B}lexos facile${R}     mode débutant (tout par numéros)"
         echo "  ${B}lexos apprendre${R}  leçons pour apprendre le terminal"
         echo "  ${B}lexos info${R}       batterie, stockage, IP, Wi-Fi"
+        echo "  ${B}lexos serveur${R}    partager un dossier sur le Wi-Fi (HTTP + QR)"
         echo "  ${B}lexos profil${R}     refaire la configuration de départ"
         echo "  ${B}lexos explique on/off${R}  avertir avant les commandes risquées"
         echo "  ${B}lexos nom <nom>${R}  mettre ton nom dans l'invite"
