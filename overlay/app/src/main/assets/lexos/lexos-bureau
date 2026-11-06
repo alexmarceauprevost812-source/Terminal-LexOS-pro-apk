@@ -1,0 +1,118 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-bureau — bureau à distance (VNC) vers ton PC.
+#  Retient l'adresse de ton PC et ouvre ton appli de bureau à distance
+#  (RVNC Viewer / VNC Viewer). Le mot de passe n'est JAMAIS enregistré :
+#  ton appli VNC te le demande.
+#    lexos bureau              menu : choisir/ajouter un PC
+#    lexos bureau <adresse>    se connecter direct (ex: 192.168.1.20 ou 192.168.1.20:5901)
+#  Menu → « Bureau à distance »
+#
+#  Côté PC il faut un serveur VNC qui tourne (ex. TightVNC / RealVNC Server
+#  sous Windows, x11vnc sous Linux), sur le même Wi-Fi.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'; G=$'\e[1;38;2;118;185;0m'; BL=$'\e[1;38;2;54;198;224m'
+D=$'\e[2m'; RED=$'\e[1;31m'; Y=$'\e[1;33m'; R=$'\e[0m'
+
+LISTE="$HOME/.lexos/bureaux"        # une ligne par PC :  nom|adresse[:port]
+mkdir -p "$HOME/.lexos"; touch "$LISTE"
+
+# Une adresse valide : IPv4 ou nom de machine, port optionnel (1-65535). Pas de caractères bizarres.
+adresse_valide() {
+    local a="$1" h p
+    [ -n "$a" ] || return 1
+    case "$a" in *[!A-Za-z0-9.:_-]*) return 1 ;; esac
+    h="${a%%:*}"
+    [ -n "$h" ] || return 1
+    case "$a" in
+        *:*)
+            p="${a#*:}"
+            # un « : » exige un vrai port derrière (pas vide, que des chiffres, 1-65535)
+            case "$p" in ""|*[!0-9]*) return 1 ;; esac
+            [ "$p" -ge 1 ] && [ "$p" -le 65535 ] || return 1 ;;
+    esac
+    return 0
+}
+
+# Ajoute le port VNC par défaut (5900) si absent.
+avec_port() { case "$1" in *:*) printf '%s' "$1" ;; *) printf '%s:5900' "$1" ;; esac; }
+
+connecter() {   # $1 = adresse[:port]
+    local a; a="$(avec_port "$1")"
+    clear 2>/dev/null
+    printf "%s🖥️  Connexion à %s%s\n\n" "$O" "$a" "$R"
+    printf "%sTon appli VNC va s'ouvrir et te demander le mot de passe du PC.%s\n" "$D" "$R"
+    if command -v termux-open >/dev/null 2>&1 && termux-open "vnc://$a" 2>/dev/null; then
+        printf "\n%s✅ Lancé.%s %sSi rien ne s'ouvre :%s ouvre %sRVNC Viewer%s à la main et ajoute :\n   %s%s%s\n" \
+            "$G" "$R" "$D" "$R" "$O" "$R" "$G" "$a" "$R"
+    else
+        printf "\n%sImpossible d'ouvrir l'appli automatiquement.%s\n" "$Y" "$R"
+        printf "Ouvre %sRVNC Viewer%s à la main et ajoute cette adresse :\n   %s%s%s\n" "$O" "$R" "$G" "$a" "$R"
+    fi
+}
+
+ajouter() {
+    clear 2>/dev/null
+    printf "%s➕ Ajouter un PC%s\n\n" "$O" "$R"
+    printf "%sOù trouver l'adresse ? Sur le PC : Windows → « ipconfig », Linux → « ip a ». Cherche 192.168.x.x%s\n\n" "$D" "$R"
+    local nom adr
+    printf "%sNom (ex: Mon PC)%s ❯ " "$O" "$R"; read -r nom || return 0
+    nom=$(printf '%s' "$nom" | tr -d '|' | cut -c1-30); [ -z "$nom" ] && nom="Mon PC"
+    printf "%sAdresse du PC (ex: 192.168.1.20 ou 192.168.1.20:5901)%s ❯ " "$O" "$R"; read -r adr || return 0
+    if ! adresse_valide "$adr"; then
+        printf "\n%sAdresse invalide.%s Exemples : 192.168.1.20  ou  192.168.1.20:5901\n" "$RED" "$R"; sleep 2; return 0
+    fi
+    printf '%s|%s\n' "$nom" "$adr" >> "$LISTE"
+    printf "\n%s✅ « %s » enregistré.%s\n" "$G" "$nom" "$R"; sleep 1
+}
+
+# --- Connexion directe : lexos bureau <adresse> ---
+if [ "$#" -ge 1 ]; then
+    if adresse_valide "$1"; then connecter "$1"; exit 0
+    else echo "${RED}Adresse invalide : $1${R}  ${D}(ex: 192.168.1.20 ou 192.168.1.20:5901)${R}"; exit 1; fi
+fi
+
+# --- Menu ---
+while :; do
+    clear 2>/dev/null
+    printf "%s❯_ LexOS · BUREAU À DISTANCE%s\n\n" "$O" "$R"
+    n=0
+    if [ -s "$LISTE" ]; then
+        while IFS='|' read -r nom adr; do
+            [ -n "${adr:-}" ] || continue
+            n=$((n+1)); printf "   %s%d%s  🖥️  %-22s %s%s%s\n" "$O" "$n" "$R" "$nom" "$D" "$adr" "$R"
+        done < "$LISTE"
+    else
+        printf "   %s(aucun PC enregistré pour l'instant)%s\n" "$D" "$R"
+    fi
+    printf "\n   %sa%s  ➕ Ajouter un PC\n" "$O" "$R"
+    [ "$n" -gt 0 ] && printf "   %sx%s  🗑️  Oublier un PC\n" "$O" "$R"
+    printf "   %s0%s  ⬅️  Retour\n" "$O" "$R"
+    printf "\n%sbureau ❯%s ton choix : " "$O" "$R"
+    read -r c || break
+    case "$c" in
+        a|A) ajouter ;;
+        x|X)
+            [ "$n" -gt 0 ] || continue
+            printf "%sNuméro du PC à oublier%s ❯ " "$O" "$R"; read -r k || continue
+            case "$k" in ''|*[!0-9]*) continue ;; esac
+            if [ "$k" -ge 1 ] && [ "$k" -le "$n" ]; then
+                sed -i "${k}d" "$LISTE" 2>/dev/null || true
+            fi ;;
+        0|q|quit|exit|"") break ;;
+        *[!0-9]*) printf "%sChoix inconnu.%s\n" "$RED" "$R"; sleep 1 ;;
+        *)
+            if [ "$c" -ge 1 ] && [ "$c" -le "$n" ]; then
+                adr=$(awk -F'|' -v k="$c" 'NF>=2{i++; if(i==k){print $2; exit}}' "$LISTE")
+                if adresse_valide "$adr"; then
+                    connecter "$adr"
+                    printf "\n%s— Entrée pour revenir —%s " "$D" "$R"; read -r _ || true
+                else
+                    printf "%sAdresse enregistrée invalide.%s\n" "$RED" "$R"; sleep 2
+                fi
+            else
+                printf "%sChoix inconnu.%s\n" "$RED" "$R"; sleep 1
+            fi ;;
+    esac
+done
