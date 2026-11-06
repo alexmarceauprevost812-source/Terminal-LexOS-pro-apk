@@ -1,0 +1,112 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-info — infos du téléphone en un coup d'œil :
+#  batterie, stockage, mémoire, adresse IP, Wi-Fi.
+#  Menu → « Infos système »  (ou : lexos info)
+#  La batterie et le Wi-Fi demandent termux-api (proposé au besoin).
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'   # orange LexOS
+G=$'\e[1;38;2;118;185;0m'   # vert lime
+BL=$'\e[1;38;2;54;198;224m' # bleu
+D=$'\e[2m'; RED=$'\e[1;31m'; Y=$'\e[1;33m'; R=$'\e[0m'
+
+# Barre de 20 cases : barre <pourcentage> -> [████░░░░]
+barre() {
+    local p=$1 w=20 i fill bar=""
+    [ "$p" -lt 0 ] 2>/dev/null && p=0; [ "$p" -gt 100 ] 2>/dev/null && p=100
+    fill=$(( p * w / 100 ))
+    for ((i=0;i<w;i++)); do if [ "$i" -lt "$fill" ]; then bar="$bar█"; else bar="$bar░"; fi; done
+    printf '%s' "$bar"
+}
+
+# Couleur selon le niveau : $1 = % utilisé (stockage/mémoire), plus c'est haut, pire c'est
+couleur_usage() { local p=$1; if [ "$p" -ge 90 ]; then printf '%s' "$RED"; elif [ "$p" -ge 75 ]; then printf '%s' "$Y"; else printf '%s' "$G"; fi; }
+# Pour la batterie : plus c'est bas, pire c'est
+couleur_batt()  { local p=$1; if [ "$p" -le 15 ]; then printf '%s' "$RED"; elif [ "$p" -le 30 ]; then printf '%s' "$Y"; else printf '%s' "$G"; fi; }
+
+ip_lan() {
+    local a
+    a=$(ip -4 addr show 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | grep -vE '^127\.' | head -n1)
+    [ -z "$a" ] && a=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -vE '^127\.' | head -n1)
+    printf '%s' "$a"
+}
+
+clear 2>/dev/null
+printf "%s❯_ LexOS · INFOS SYSTÈME%s\n\n" "$O" "$R"
+
+# ---- Batterie (termux-api) ----
+if command -v termux-battery-status >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    b=$(timeout 6 termux-battery-status 2>/dev/null)
+    if [ -n "$b" ]; then
+        pct=$(printf '%s' "$b" | jq -r '.percentage // empty' 2>/dev/null)
+        st=$(printf '%s' "$b" | jq -r '.status // empty' 2>/dev/null)
+        tmp=$(printf '%s' "$b" | jq -r '.temperature // empty' 2>/dev/null)
+        if [ -n "$pct" ]; then
+            c=$(couleur_batt "$pct")
+            case "$st" in CHARGING) ic="⚡ en charge" ;; FULL) ic="✅ pleine" ;; *) ic="🔋" ;; esac
+            printf "  🔋 %sBatterie%s   %s[%s]%s %s%%  %s%s%s" "$O" "$R" "$c" "$(barre "$pct")" "$R" "$pct" "$D" "$ic" "$R"
+            [ -n "$tmp" ] && printf "  %s%s°C%s" "$D" "${tmp%.*}" "$R"
+            printf "\n"
+        fi
+    else
+        printf "  🔋 %sBatterie%s   %s(pas de réponse de termux-api — l'app Termux:API est-elle installée ?)%s\n" "$O" "$R" "$D" "$R"
+    fi
+else
+    printf "  🔋 %sBatterie%s   %s(indisponible : %spkg install termux-api jq%s%s + l'app Termux:API)%s\n" "$O" "$R" "$D" "$O" "$R" "$D" "$R"
+fi
+
+# ---- Stockage (/data = mémoire interne de Termux) ----
+st=$(df -P "$HOME" 2>/dev/null | awk 'NR==2{print $5" "$3" "$2}')
+if [ -n "$st" ]; then
+    pct=${st%%%*}; rest=${st#* }; used=${rest% *}; tot=${rest#* }
+    hum() { awk -v k="$1" 'BEGIN{ if(k>=1048576) printf "%.1f Go", k/1048576; else printf "%.0f Mo", k/1024 }'; }
+    c=$(couleur_usage "$pct")
+    printf "  💾 %sStockage%s   %s[%s]%s %s%%  %s%s / %s%s\n" "$O" "$R" "$c" "$(barre "$pct")" "$R" "$pct" "$D" "$(hum "$used")" "$(hum "$tot")" "$R"
+fi
+
+# ---- Mémoire vive ----
+if [ -r /proc/meminfo ]; then
+    mt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo); ma=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+    if [ -n "${mt:-}" ] && [ -n "${ma:-}" ] && [ "$mt" -gt 0 ]; then
+        mu=$(( mt - ma )); pct=$(( mu * 100 / mt )); c=$(couleur_usage "$pct")
+        printf "  🧠 %sMémoire%s    %s[%s]%s %s%%  %s%s Mo / %s Mo%s\n" "$O" "$R" "$c" "$(barre "$pct")" "$R" "$pct" "$D" "$((mu/1024))" "$((mt/1024))" "$R"
+    fi
+fi
+
+# ---- Réseau ----
+echo
+ip=$(ip_lan)
+if [ -n "$ip" ]; then
+    printf "  🌐 %sAdresse IP%s  %s%s%s\n" "$O" "$R" "$G" "$ip" "$R"
+else
+    printf "  🌐 %sAdresse IP%s  %s(aucune : pas de Wi-Fi ?)%s\n" "$O" "$R" "$D" "$R"
+fi
+
+if command -v termux-wifi-connectioninfo >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    w=$(timeout 6 termux-wifi-connectioninfo 2>/dev/null)
+    if [ -n "$w" ]; then
+        ssid=$(printf '%s' "$w" | jq -r '.ssid // empty' 2>/dev/null | tr -d '"')
+        rssi=$(printf '%s' "$w" | jq -r '.rssi // empty' 2>/dev/null)
+        spd=$(printf '%s' "$w" | jq -r '.link_speed_mbps // empty' 2>/dev/null)
+        if [ -n "$ssid" ] && [ "$ssid" != "<unknown ssid>" ]; then
+            printf "  📶 %sWi-Fi%s       %s%s%s" "$O" "$R" "$BL" "$ssid" "$R"
+            [ -n "$rssi" ] && printf "  %s(signal %s dBm" "$D" "$rssi"
+            [ -n "$spd" ] && printf ", %s Mb/s" "$spd"
+            [ -n "$rssi" ] && printf ")%s" "$R"
+            printf "\n"
+        else
+            printf "  📶 %sWi-Fi%s       %s(non connecté, ou nom masqué — la localisation doit être activée)%s\n" "$O" "$R" "$D" "$R"
+        fi
+    fi
+else
+    printf "  📶 %sWi-Fi%s       %s(détails : termux-api)%s\n" "$O" "$R" "$D" "$R"
+fi
+
+# ---- Système ----
+echo
+printf "  📱 %sAndroid%s     %s%s%s  %s(%s)%s\n" "$O" "$R" "$G" "$(getprop ro.build.version.release 2>/dev/null || echo '?')" "$R" "$D" "$(getprop ro.product.model 2>/dev/null || echo 'modèle inconnu')" "$R"
+printf "  ⏱️  %sActif depuis%s %s%s%s\n" "$O" "$R" "$D" "$(uptime -p 2>/dev/null | sed 's/^up //' || echo '?')" "$R"
+
+printf "\n%s— Entrée pour revenir —%s " "$D" "$R"
+read -r _ 2>/dev/null || true
