@@ -44,7 +44,6 @@ menu() {
   printf "   %sa%s  🎓 Apprendre le terminal\n"          "$O" "$R"
   printf "   %si%s  📊 Infos système\n"                  "$O" "$R"
   printf "   %ss%s  🌐 Serveur de partage (dossier)\n"   "$O" "$R"
-  printf "   %si%s  📊 Infos système\n"                  "$O" "$R"
   printf "   %s0%s  ⌨️  Mode libre (taper une commande)\n" "$O" "$R"
 }
 
