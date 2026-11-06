@@ -39,13 +39,14 @@ fi
 # --- Version RÉELLEMENT installée de l'app (best effort, sans root) ---
 installed_version() {
     local v=""
-    if command -v termux-info >/dev/null 2>&1; then
+    # 1) Écrit par l'app LexOS elle-même à chaque démarrage (la source la plus fiable)
+    [ -f "$HOME/.lexos/.app_version" ] && v=$(tr -d '[:space:]' < "$HOME/.lexos/.app_version" 2>/dev/null)
+    if [ -z "$v" ] && command -v termux-info >/dev/null 2>&1; then
         v=$(termux-info 2>/dev/null | grep -iE 'app version' | grep -oE '[0-9][0-9A-Za-z._-]*' | head -n1)
     fi
     if [ -z "$v" ]; then
         v=$(dumpsys package "$PKG" 2>/dev/null | sed -n 's/.*versionName=\([^ ]*\).*/\1/p' | head -n1)
     fi
-    [ -z "$v" ] && [ -f "$HOME/.lexos/.app_version" ] && v=$(cat "$HOME/.lexos/.app_version" 2>/dev/null)
     printf '%s' "$v"
 }
 norm() { printf '%s' "$1" | tr -d ' v' | tr 'A-Z' 'a-z'; }
@@ -54,7 +55,9 @@ echo "${B}❯_ LexOS${R} ${D}Vérification de la dernière version…${R}"
 JSON=$(curl -fsSL --max-time 30 "$API" 2>/dev/null) || { echo "${RED}Pas de réseau ou dépôt injoignable.${R}"; exit 1; }
 
 URL=$(printf '%s' "$JSON" | jq -r '.assets[] | select(.name|endswith(".apk")) | .browser_download_url' | head -n1)
-TAG=$(printf '%s' "$JSON" | jq -r '.tag_name // .name // empty')
+# Le tag est toujours « latest » : le vrai numéro (0.118.N) est dans le texte de la release.
+TAG=$(printf '%s' "$JSON" | jq -r '.body // ""' | grep -oE 'versionName +[0-9][0-9A-Za-z._-]*' | head -n1 | awk '{print $2}')
+[ -z "$TAG" ] && TAG=$(printf '%s' "$JSON" | jq -r '.tag_name // .name // empty')
 if [ -z "$URL" ] || [ "$URL" = "null" ]; then
     echo "${RED}Aucun APK dans la dernière release.${R}"; exit 1
 fi
@@ -101,4 +104,6 @@ curl -fL --progress-bar "$URL" -o "$APK" || { echo "${RED}Échec du télécharge
 echo "${G}Téléchargé.${R} Ouverture de l'installateur…"
 command -v termux-open >/dev/null 2>&1 && termux-open --content-type "$CT" --view "$APK" 2>/dev/null
 echo "${D}Si rien ne s'ouvre : appli « Fichiers » → Téléchargements → LexOS-Pro.apk → Installer.${R}"
-echo "${D}Si « Appli non installée » : désinstalle d'abord l'ancienne version, puis réinstalle.${R}"
+echo "${G}Ça s'installe PAR-DESSUS : ne désinstalle pas.${R} ${D}(Désinstaller efface tout : Kali, le modèle IA, tes notes.)${R}"
+echo "${D}Si Android refuse (« Appli non installée »), ne désinstalle pas tout de suite : sauvegarde d'abord :${R}"
+echo "${D}  tar czf ~/storage/downloads/lexos-sauvegarde.tgz --exclude=.lexos/models -C ~ .lexos bin${R}"

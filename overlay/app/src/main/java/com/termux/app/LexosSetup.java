@@ -3,6 +3,7 @@ package com.termux.app;
 import android.content.Context;
 import android.util.Log;
 
+import com.termux.BuildConfig;
 import com.termux.shared.termux.TermuxConstants;
 
 import java.io.File;
@@ -32,7 +33,7 @@ public final class LexosSetup {
     private static final String LOG_TAG = "LexosSetup";
 
     /** À incrémenter quand aide/lexos.sh/couleurs changent, pour forcer le redéploiement. */
-    private static final int LEXOS_SETUP_VERSION = 37;
+    private static final int LEXOS_SETUP_VERSION = 38;
 
     private static final String HOME = TermuxConstants.TERMUX_HOME_DIR_PATH;
 
@@ -107,9 +108,19 @@ public final class LexosSetup {
         if (!config.exists()) copyAsset(context, "lexos/config", config);
 
         ensureBashrcSourcesLexos();
+        writeAppVersion(lexosDir);
 
         writeVersion(marker);
         Log.i(LOG_TAG, "Installation LexOS OK (version " + LEXOS_SETUP_VERSION + ").");
+    }
+
+    /** Écrit la vraie version de l'app : lexos-update la compare à la dernière release. */
+    private static void writeAppVersion(File lexosDir) {
+        try (OutputStream os = new FileOutputStream(new File(lexosDir, ".app_version"))) {
+            os.write(BuildConfig.VERSION_NAME.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            Log.w(LOG_TAG, "Version de l'app non écrite : " + e.getMessage());
+        }
     }
 
     private static void ensureBashrcSourcesLexos() throws IOException {
