@@ -25,6 +25,15 @@ case "${1:-}" in
         exec lexos-facile ;;
     profil|bienvenue|config-depart)
         exec lexos-bienvenue ;;
+    explique|expliquer|explications)
+        shift
+        prof="$HOME/.lexos/profil"; mkdir -p "$HOME/.lexos"; touch "$prof"
+        case "${1:-}" in off|non|0|stop) val=off ;; *) val=on ;; esac
+        grep -v '^LEXOS_EXPLIQUE=' "$prof" > "$prof.tmp" 2>/dev/null || true
+        mv "$prof.tmp" "$prof" 2>/dev/null || true
+        printf 'LEXOS_EXPLIQUE="%s"\n' "$val" >> "$prof"
+        echo "${B}Mode explique-moi : $val${R}"
+        echo "${D}Effet au prochain terminal (rouvre LexOS).${R}" ;;
     partage|partager|qr|share)
         exec lexos-partage ;;
     fichier|fichiers|file|envoyer)
@@ -63,6 +72,7 @@ case "${1:-}" in
         echo "  ${B}lexos outils${R}     catalogue des outils d'audit"
         echo "  ${B}lexos facile${R}     mode débutant (tout par numéros)"
         echo "  ${B}lexos profil${R}     refaire la configuration de départ"
+        echo "  ${B}lexos explique on/off${R}  avertir avant les commandes risquées"
         echo "  ${B}lexos nom <nom>${R}  mettre ton nom dans l'invite"
         echo "  ${B}lexos partage${R}    partager LexOS par QR code"
         echo "  ${B}lexos fichier <f>${R} envoyer un fichier par QR"

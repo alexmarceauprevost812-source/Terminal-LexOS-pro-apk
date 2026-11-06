@@ -75,6 +75,8 @@ public final class LexosSetup {
             installExecutable(context, "lexos/lexos-bienvenue", new File(bin, "lexos-bienvenue"));
 
             copyAsset(context, "lexos/lexos.sh", new File(lexosDir, "lexos.sh"));
+            copyAsset(context, "lexos/explique.sh", new File(lexosDir, "explique.sh"));
+            copyAsset(context, "lexos/explications.txt", new File(lexosDir, "explications.txt"));
             copyAsset(context, "lexos/banner.txt", new File(lexosDir, "banner.txt"));
             copyAsset(context, "lexos/banner.png", new File(lexosDir, "banner.png"));
             copyAsset(context, "lexos/avatar.png", new File(lexosDir, "avatar.png"));

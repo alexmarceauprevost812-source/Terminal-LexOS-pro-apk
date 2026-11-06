@@ -64,6 +64,11 @@ __lexos_ps1() {
 }
 PROMPT_COMMAND=__lexos_ps1
 
+# ---- Mode « explique-moi » (débutant) : avertit avant les commandes risquées ----
+if [ "${LEXOS_EXPLIQUE:-off}" = "on" ] && [[ $- == *i* ]] && [ -f "$HOME/.lexos/explique.sh" ]; then
+    . "$HOME/.lexos/explique.sh"
+fi
+
 # ---- Accueil (une fois par session, en interactif) — texte propre, sans image ----
 if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 0 ] && [ -t 1 ]; then
     export LEXOS_MOTD_SHOWN=1
