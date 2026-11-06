@@ -84,5 +84,45 @@ if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 0 ] && [ -t 1 ]; then
     fi
 fi
 
+# ---- Autocomplétion en français : commande inconnue -> l'IA propose la vraie ----
+# Un seul mot = faute de frappe (comportement normal). Une phrase = demande à l'IA.
+command_not_found_handle() {
+    local phrase="$*"
+    if [ "$#" -lt 2 ]; then
+        printf "bash: %s : commande introuvable\n" "$1" >&2
+        printf "\e[2m(installer ? pkg install %s   ·   ou demande : aide \"%s\")\e[0m\n" "$1" "$1" >&2
+        return 127
+    fi
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        printf "bash: %s : commande introuvable\n" "$1" >&2; return 127
+    fi
+    local url="${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}"
+    if ! curl -s --max-time 2 "$url/health" >/dev/null 2>&1 \
+       && ! curl -s --max-time 2 "$url/v1/models" >/dev/null 2>&1; then
+        printf "\e[2m🤖 L'IA locale n'est pas démarrée.\e[0m Fais : \e[1;38;2;248;120;0mlexos ia\e[0m\n" >&2
+        return 127
+    fi
+    command -v jq >/dev/null 2>&1 || { printf "\e[2m(jq manquant : pkg install jq)\e[0m\n" >&2; return 127; }
+    local sys="Tu es l'assistant LexOS Pro (terminal Termux sur Android). On te donne une demande en francais. Reponds par la commande EXACTE a taper, seule sur la premiere ligne (Termux : pkg au lieu de apt, jamais sudo), sans backticks."
+    local payload resp cmd
+    payload=$(jq -n --arg s "$sys" --arg u "$phrase" '{stream:false,messages:[{role:"system",content:$s},{role:"user",content:$u}]}') || return 127
+    printf "\e[2m🤖 LexOS réfléchit…\e[0m\r" >&2
+    resp=$(curl -s --max-time 20 "$url/v1/chat/completions" -H 'Content-Type: application/json' -d "$payload" 2>/dev/null)
+    printf "\e[K" >&2
+    cmd=$(printf '%s' "$resp" | jq -r '.choices[0].message.content // empty' 2>/dev/null \
+          | grep -m1 -vE '^[[:space:]]*$' | sed -E 's/^`+//; s/`+$//; s/^[[:space:]]+//; s/[[:space:]]+$//')
+    if [ -z "$cmd" ]; then
+        printf "\e[2m🤖 Pas de suggestion. Essaie : \e[0maide \"%s\"\n" "$phrase" >&2; return 127
+    fi
+    if printf '%s' "$cmd" | grep -qiE 'rm +-[rf]|rm +-rf| dd |mkfs|> *\/dev\/|chmod +-R +777|pkg +uninstall'; then
+        printf "\e[1;38;2;255;23;68m⚠️  Commande risquée proposée :\e[0m %s\n" "$cmd" >&2
+    else
+        printf "\e[2m🤖 Tu voulais dire :\e[0m \e[1;38;2;255;215;0m%s\e[0m\n" "$cmd" >&2
+    fi
+    printf "\e[2m[Entrée = lancer · n = non] ❯ \e[0m"
+    local rep=""; read -r rep </dev/tty 2>/dev/null
+    case "$rep" in n|N|non|NON|no) return 127 ;; *) eval "$cmd"; return $? ;; esac
+}
+
 # Active blesh à la fin (coloration en direct)
 [[ ${BLE_VERSION-} ]] && ble-attach

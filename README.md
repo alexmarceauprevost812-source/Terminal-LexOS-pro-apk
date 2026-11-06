@@ -83,6 +83,20 @@ stable, voir `keystore/`). La commande apparaît aussi dans le message d'accueil
 
 ---
 
+## 🎓 Pour les débutants
+
+| Commande | Ce que ça fait |
+|----------|----------------|
+| *(1er démarrage)* | **Bienvenue** : prénom, couleur (orange / vert Matrix / bleu Québec / rouge), niveau (débutant / pro). Installe `curl jq dialog chafa` avec une barre, propose l'IA. Refaire : `lexos profil` |
+| `lexos explique on/off` | **Explique-moi** : avertit en rouge avant `rm -r`, `dd`, `mkfs`, `chmod -R 777`, `pkg uninstall`… (confirmation `[o/N]`) et explique les commandes courantes (dictionnaire `~/.lexos/explications.txt`) |
+| `lexos apprendre` | **6 leçons** de ~5 min (fichiers, paquets, réseau, Python, Git, sécurité éthique) : tu tapes la vraie commande, LexOS vérifie. Progression `~/.lexos/progres`, badges 🥉🥈🥇🏆 (`apprendre badges`) |
+| *(phrase en français)* | **Autocomplétion** : « trouve fichier photo » → l'IA locale propose la vraie commande (`Entrée` = lancer, `n` = non). Si l'IA n'est pas démarrée : `lexos ia` |
+
+Le profil est dans `~/.lexos/profil` (`LEXOS_NAME`, `LEXOS_COLOR`, `LEXOS_LEVEL`, `LEXOS_EXPLIQUE`).
+Les leçons sont de simples fichiers texte (`assets/lexos/lecons/*.txt`) : on peut en ajouter.
+
+---
+
 ## 🎨 Personnaliser
 
 Tout est dans `overlay/` (copié tel quel sur Termux au build) :
