@@ -1,0 +1,9 @@
+TITRE: Python, premiers pas
+ETAPE
+texte: Python est un langage simple et puissant. Vérifie s'il est installé : « python --version ».
+attendu: ^python
+indice: tape : python --version   (absent ? pkg install python)
+ETAPE
+texte: Fais dire bonjour à Python : python -c "print('Bonjour')".
+attendu: ^python +-c
+indice: tape : python -c "print('Bonjour')"

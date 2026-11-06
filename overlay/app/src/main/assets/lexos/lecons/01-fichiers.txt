@@ -1,0 +1,17 @@
+TITRE: Fichiers et dossiers
+ETAPE
+texte: Pour voir dans quel dossier tu es, tape « pwd » (ça veut dire : où suis-je ?).
+attendu: ^pwd$
+indice: tape exactement : pwd
+ETAPE
+texte: Pour lister ce qu'il y a ici, tape « ls ».
+attendu: ^ls($| )
+indice: tape : ls
+ETAPE
+texte: Crée un dossier d'essai avec « mkdir essai ».
+attendu: ^mkdir +essai
+indice: tape : mkdir essai
+ETAPE
+texte: Entre dans ce dossier avec « cd essai ».
+attendu: ^cd +essai
+indice: tape : cd essai

@@ -1,0 +1,9 @@
+TITRE: Git de base
+ETAPE
+texte: git garde l'historique de ton code. Affiche sa version : « git --version ».
+attendu: ^git
+indice: tape : git --version
+ETAPE
+texte: Dis à git qui tu es : git config --global user.name "TonNom".
+attendu: ^git +config
+indice: tape : git config --global user.name "Alex"

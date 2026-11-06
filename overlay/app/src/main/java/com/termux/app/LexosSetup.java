@@ -73,6 +73,7 @@ public final class LexosSetup {
             installExecutable(context, "lexos/lexos-partage", new File(bin, "lexos-partage"));
             installExecutable(context, "lexos/lexos-fichier", new File(bin, "lexos-fichier"));
             installExecutable(context, "lexos/lexos-bienvenue", new File(bin, "lexos-bienvenue"));
+            installExecutable(context, "lexos/apprendre", new File(bin, "apprendre"));
 
             copyAsset(context, "lexos/lexos.sh", new File(lexosDir, "lexos.sh"));
             copyAsset(context, "lexos/explique.sh", new File(lexosDir, "explique.sh"));
@@ -81,6 +82,16 @@ public final class LexosSetup {
             copyAsset(context, "lexos/banner.png", new File(lexosDir, "banner.png"));
             copyAsset(context, "lexos/avatar.png", new File(lexosDir, "avatar.png"));
             copyAsset(context, "lexos/menu-gauche.png", new File(lexosDir, "menu-gauche.png"));
+
+            // Leçons de « apprendre »
+            File leconsDir = new File(lexosDir, "lecons");
+            //noinspection ResultOfMethodCallIgnored
+            leconsDir.mkdirs();
+            for (String lecon : new String[] {
+                    "01-fichiers.txt", "02-paquets.txt", "03-reseau.txt",
+                    "04-python.txt", "05-git.txt", "06-securite.txt" }) {
+                copyAsset(context, "lexos/lecons/" + lecon, new File(leconsDir, lecon));
+            }
 
             File termuxDir = new File(HOME, ".termux");
             //noinspection ResultOfMethodCallIgnored

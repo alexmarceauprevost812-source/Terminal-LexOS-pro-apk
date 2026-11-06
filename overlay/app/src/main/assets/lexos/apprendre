@@ -1,0 +1,143 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  apprendre — petites leçons (~5 min) pour apprendre le terminal.
+#  Tu lis, tu tapes la vraie commande, LexOS vérifie. Badges 🥉🥈🥇🏆.
+#  Menu → « Apprendre »  (ou : lexos apprendre · apprendre badges)
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'   # orange LexOS
+G=$'\e[1;38;2;118;185;0m'   # vert lime
+BL=$'\e[1;38;2;54;198;224m' # bleu
+D=$'\e[2m'; RED=$'\e[1;38;2;255;23;68m'; R=$'\e[0m'
+
+LECONS="$HOME/.lexos/lecons"
+PROG="$HOME/.lexos/progres"
+mkdir -p "$HOME/.lexos"; touch "$PROG"
+
+# id | fichier | titre | emoji
+LECONS_LISTE=(
+  "fichiers|01-fichiers.txt|Fichiers et dossiers|📂"
+  "paquets|02-paquets.txt|Installer des programmes|📦"
+  "reseau|03-reseau.txt|Réseau de base|🌐"
+  "python|04-python.txt|Python, premiers pas|🐍"
+  "git|05-git.txt|Git de base|🔀"
+  "securite|06-securite.txt|Sécurité éthique|🛡️"
+)
+TOTAL=${#LECONS_LISTE[@]}
+
+fait() { grep -qxF "$1" "$PROG" 2>/dev/null; }
+
+nb_faits() {
+  local n=0 e id
+  for e in "${LECONS_LISTE[@]}"; do id=${e%%|*}; fait "$id" && n=$((n+1)); done
+  printf '%s' "$n"
+}
+
+barre() {   # barre <n> <total>
+  local n=$1 tot=$2 w=20 i fill bar=""
+  [ "$tot" -gt 0 ] || tot=1
+  fill=$(( n * w / tot ))
+  for ((i=0;i<w;i++)); do if [ "$i" -lt "$fill" ]; then bar="$bar█"; else bar="$bar░"; fi; done
+  printf '%s[%s]%s %d/%d' "$O" "$bar" "$R" "$n" "$tot"
+}
+
+badge_pour() {   # <n> -> texte du badge
+  local n=$1
+  if   [ "$n" -ge 6 ]; then printf '🏆 Maître'
+  elif [ "$n" -ge 4 ]; then printf '🥇 Or'
+  elif [ "$n" -ge 2 ]; then printf '🥈 Argent'
+  elif [ "$n" -ge 1 ]; then printf '🥉 Bronze'
+  else printf '— (aucun encore)'; fi
+}
+
+montrer_badges() {
+  clear 2>/dev/null
+  local n; n=$(nb_faits)
+  printf "%s🏅 Tes badges LexOS%s\n\n" "$O" "$R"
+  printf "Leçons terminées : %s / %s\n" "$n" "$TOTAL"
+  printf "Badge actuel : %s%s%s\n\n" "$O" "$(badge_pour "$n")" "$R"
+  printf "  🥉 Bronze = 1 leçon   🥈 Argent = 2\n  🥇 Or     = 4 leçons  🏆 Maître = 6\n"
+  printf "\n%s— Entrée pour revenir —%s " "$D" "$R"; read -r _ || true
+}
+
+faire_lecon() {   # <id> <fichier> <titre>
+  local id=$1 fichier=$2 titre=$3 path="$LECONS/$fichier"
+  [ -f "$path" ] || { printf "%sLeçon introuvable (%s).%s\n" "$RED" "$fichier" "$R"; sleep 1; return; }
+  local total; total=$(grep -c '^ETAPE' "$path" 2>/dev/null); [ "${total:-0}" -ge 1 ] || total=1
+  local n=0 texte attendu indice cmd
+  while IFS=$'\t' read -r texte attendu indice; do
+    n=$((n+1))
+    while :; do
+      clear 2>/dev/null
+      printf "%s▶ %s%s   %s\n\n" "$O" "$titre" "$R" "$(barre "$((n-1))" "$total")"
+      printf "%s%s%s\n\n" "$BL" "$texte" "$R"
+      printf "%s(tape la commande · %sindice%s%s · %spasser%s%s · %squitter%s%s)%s\n" \
+        "$D" "$O" "$R" "$D" "$O" "$R" "$D" "$O" "$R" "$D" "$R"
+      printf "%stoi ❯%s " "$O" "$R"
+      read -r cmd || return
+      case "$cmd" in
+        quitter|quit|q) return ;;
+        passer|skip|suivant) break ;;
+        indice|aide|\?) printf "\n%s💡 %s%s\n" "$O" "$indice" "$R"; sleep 2; continue ;;
+      esac
+      if printf '%s' "$cmd" | grep -qE "$attendu"; then
+        printf "\n%s✅ Bravo !%s\n%s─── résultat ───%s\n" "$G" "$R" "$D" "$R"
+        bash -c "$cmd" 2>&1 | head -15
+        printf "%s────────────────%s\n" "$D" "$R"
+        printf "%s— Entrée pour continuer —%s " "$D" "$R"; read -r _ || true
+        break
+      else
+        printf "\n%sPas tout à fait. Essaie « %sindice%s%s » ou « %spasser%s%s ».%s\n" \
+          "$RED" "$O" "$R" "$RED" "$O" "$R" "$RED" "$R"; sleep 2
+      fi
+    done
+  done < <(awk '
+      /^ETAPE/   { if(h) print t"\t"a"\t"i; t="";a="";i="";h=1; next }
+      /^texte:/  { s=$0; sub(/^texte: */,"",s);   t=s }
+      /^attendu:/{ s=$0; sub(/^attendu: */,"",s); a=s }
+      /^indice:/ { s=$0; sub(/^indice: */,"",s);  i=s }
+      END { if(h) print t"\t"a"\t"i }' "$path")
+
+  fait "$id" || echo "$id" >> "$PROG"
+  local nb; nb=$(nb_faits)
+  clear 2>/dev/null
+  printf "%s🎉 Leçon « %s » terminée !%s\n\n" "$G" "$titre" "$R"
+  printf "Progression : %s\n" "$(barre "$nb" "$TOTAL")"
+  printf "Badge : %s%s%s\n" "$O" "$(badge_pour "$nb")" "$R"
+  printf "\n%s— Entrée pour revenir au menu —%s " "$D" "$R"; read -r _ || true
+}
+
+case "${1:-}" in
+  badges|badge|-b) montrer_badges; exit 0 ;;
+esac
+
+while :; do
+  clear 2>/dev/null
+  nb=$(nb_faits)
+  printf "%s🎓 APPRENDRE le terminal%s   %s\n\n" "$O" "$R" "$(barre "$nb" "$TOTAL")"
+  i=0
+  for e in "${LECONS_LISTE[@]}"; do
+    i=$((i+1))
+    id=${e%%|*}; rest=${e#*|}; fichier=${rest%%|*}; rest=${rest#*|}; titre=${rest%%|*}; emoji=${rest##*|}
+    mark="  "; fait "$id" && mark="✅"
+    printf "   %s%d%s  %s %-28s %s\n" "$O" "$i" "$R" "$emoji" "$titre" "$mark"
+  done
+  printf "\n   %sb%s  🏅 Mes badges\n" "$O" "$R"
+  printf "   %s0%s  ⬅️  Quitter\n" "$O" "$R"
+  printf "\n%sapprendre ❯%s ton choix : " "$O" "$R"
+  read -r c || break
+  case "$c" in
+    b|badges) montrer_badges ;;
+    0|q|quit|exit|"") break ;;
+    [1-9])
+      idx=$((c-1))
+      if [ "$idx" -ge 0 ] && [ "$idx" -lt "$TOTAL" ]; then
+        e=${LECONS_LISTE[$idx]}
+        id=${e%%|*}; rest=${e#*|}; fichier=${rest%%|*}; rest=${rest#*|}; titre=${rest%%|*}
+        faire_lecon "$id" "$fichier" "$titre"
+      else
+        printf "%sChoix inconnu.%s\n" "$RED" "$R"; sleep 1
+      fi ;;
+    *) printf "%sChoix inconnu.%s\n" "$RED" "$R"; sleep 1 ;;
+  esac
+done

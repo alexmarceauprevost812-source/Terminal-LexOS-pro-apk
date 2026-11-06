@@ -41,6 +41,7 @@ menu() {
   printf "   %s7%s  🙂 Mode facile (débutant)\n"        "$O" "$R"
   printf "   %s8%s  📲 Partager LexOS (QR code)\n"       "$O" "$R"
   printf "   %s9%s  📁 Partager un fichier (QR)\n"       "$O" "$R"
+  printf "   %sa%s  🎓 Apprendre le terminal\n"          "$O" "$R"
   printf "   %s0%s  ⌨️  Mode libre (taper une commande)\n" "$O" "$R"
 }
 
@@ -48,7 +49,7 @@ while :; do
   clear 2>/dev/null
   header
   menu
-  printf "\n%slexos ❯%s ton choix (0-9) : " "$O" "$R"
+  printf "\n%slexos ❯%s ton choix (0-9, a) : " "$O" "$R"
   read -r c || break
   case "$c" in
     1) lexos parler ;;
@@ -60,6 +61,7 @@ while :; do
     7) lexos-facile ;;
     8) lexos-partage ;;
     9) lexos-fichier recevoir ;;
+    a|A|apprendre) apprendre ;;
     0|q|quit|exit|"") break ;;
     *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1; continue ;;
   esac

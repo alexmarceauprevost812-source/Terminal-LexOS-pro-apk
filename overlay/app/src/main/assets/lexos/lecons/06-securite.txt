@@ -1,0 +1,13 @@
+TITRE: Sécurité éthique
+ETAPE
+texte: Règle d'or : on teste UNIQUEMENT ses propres appareils, ou avec une autorisation écrite. Tape « autorisation » pour confirmer que tu as compris.
+attendu: ^autorisation$
+indice: tape le mot : autorisation
+ETAPE
+texte: Les outils (nmap, etc.) servent à PROTÉGER et comprendre. Vérifie nmap : « nmap --version ».
+attendu: ^nmap
+indice: tape : nmap --version
+ETAPE
+texte: Ne scanne jamais un réseau qui n'est pas à toi sans permission. Tape « ok » pour t'engager.
+attendu: ^ok$
+indice: tape : ok

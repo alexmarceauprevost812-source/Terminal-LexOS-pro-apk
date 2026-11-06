@@ -76,6 +76,7 @@ while :; do
     printf   "   %s4%s  🔄 Mettre LexOS à jour\n"               "$O" "$R"
     printf   "   %s5%s  🤖 Démarrer l'IA locale\n"             "$O" "$R"
     printf   "   %s6%s  🎨 Couleurs\n"                          "$O" "$R"
+    printf   "   %s7%s  🎓 Apprendre le terminal\n"            "$O" "$R"
     printf   "   %s?%s  ❓ C'est quoi ? (aide)\n"               "$O" "$R"
     printf   "   %s0%s  ⌨️  Mode libre / quitter\n"             "$O" "$R"
     printf "\n%sfacile ❯%s ton choix : " "$O" "$R"
@@ -87,6 +88,7 @@ while :; do
         4) maj_lexos; pause ;;
         5) demarrer_ia; pause ;;
         6) couleurs; pause ;;
+        7) command -v apprendre >/dev/null 2>&1 && apprendre ;;
         \?|aide|help|h) aide_demarrer; pause ;;
         0|q|quit|exit|"") break ;;
         *) printf "%sChoix inconnu : %s%s\n" "$RED" "$c" "$R"; sleep 1 ;;

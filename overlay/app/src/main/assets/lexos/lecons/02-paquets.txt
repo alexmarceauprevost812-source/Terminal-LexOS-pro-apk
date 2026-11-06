@@ -1,0 +1,13 @@
+TITRE: Installer des programmes
+ETAPE
+texte: Les programmes s'installent avec « pkg ». Affiche son aide : « pkg --help ».
+attendu: ^pkg( |$)
+indice: tape : pkg --help
+ETAPE
+texte: Pour vérifier si un programme est déjà là : « command -v git ».
+attendu: ^command +-v
+indice: tape : command -v git
+ETAPE
+texte: On installe avec « pkg install nom ». Installe l'éditeur nano : « pkg install nano ».
+attendu: ^pkg +install
+indice: tape : pkg install nano

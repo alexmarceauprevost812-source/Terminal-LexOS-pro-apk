@@ -1,0 +1,9 @@
+TITRE: Réseau de base
+ETAPE
+texte: Teste ta connexion locale : « ping -c 2 127.0.0.1 » (127.0.0.1 = ton propre appareil).
+attendu: ^ping
+indice: tape : ping -c 2 127.0.0.1
+ETAPE
+texte: Pour voir les appareils du WiFi (plus tard), on utilise nmap. Affiche sa version : « nmap --version ».
+attendu: ^nmap
+indice: tape : nmap --version   (absent ? pkg install nmap)
