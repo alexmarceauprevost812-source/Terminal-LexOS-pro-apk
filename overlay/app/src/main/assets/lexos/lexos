@@ -23,6 +23,8 @@ case "${1:-}" in
         exec catalogue ;;
     facile|debutant|débutant|simple)
         exec lexos-facile ;;
+    profil|bienvenue|config-depart)
+        exec lexos-bienvenue ;;
     partage|partager|qr|share)
         exec lexos-partage ;;
     fichier|fichiers|file|envoyer)
@@ -60,6 +62,7 @@ case "${1:-}" in
         echo "  ${B}lexos kali${R}       installer / entrer dans Kali"
         echo "  ${B}lexos outils${R}     catalogue des outils d'audit"
         echo "  ${B}lexos facile${R}     mode débutant (tout par numéros)"
+        echo "  ${B}lexos profil${R}     refaire la configuration de départ"
         echo "  ${B}lexos nom <nom>${R}  mettre ton nom dans l'invite"
         echo "  ${B}lexos partage${R}    partager LexOS par QR code"
         echo "  ${B}lexos fichier <f>${R} envoyer un fichier par QR"

@@ -6,7 +6,10 @@ alias lex=aide
 
 # Nom affiché dans l'invite (modifiable : « lexos nom <ton-nom> »)
 [ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+# Profil (prénom/couleur/niveau), créé par lexos-bienvenue au 1er démarrage
+[ -f "$HOME/.lexos/profil" ] && . "$HOME/.lexos/profil"
 : "${LEXOS_NAME:=ti-lex}"
+: "${LEXOS_COLOR:=248;120;0}"
 
 # Coloration syntaxique de la ligne de commande quand tu tapes (si ble.sh présent)
 if [[ $- == *i* ]] && [ -f "$PREFIX/share/blesh/ble.sh" ]; then
@@ -50,7 +53,7 @@ export LESS_TERMCAP_se=$'\e[0m'
 __lexos_ps1() {
     local e=$?
     local name="${LEXOS_NAME:-ti-lex}"
-    local o=$'\[\e[1;38;2;248;120;0m\]'   # orange gras (ton nom)
+    local o=$'\[\e[1;38;2;'"${LEXOS_COLOR:-248;120;0}"$'m\]'   # couleur du profil (ton nom)
     local g=$'\[\e[1;38;2;118;185;0m\]'   # vert lime (lexos)
     local cy=$'\[\e[38;2;54;198;224m\]'   # cyan (dossier)
     local d=$'\[\e[2m\]' z=$'\[\e[0m\]' ko=$'\[\e[1;31m\]'
@@ -64,7 +67,11 @@ PROMPT_COMMAND=__lexos_ps1
 # ---- Accueil (une fois par session, en interactif) — texte propre, sans image ----
 if [ -z "${LEXOS_MOTD_SHOWN:-}" ] && [ -t 0 ] && [ -t 1 ]; then
     export LEXOS_MOTD_SHOWN=1
-    if command -v lexos-menu >/dev/null 2>&1; then
+    if [ ! -f "$HOME/.lexos/profil" ] && command -v lexos-bienvenue >/dev/null 2>&1; then
+        # Tout premier démarrage : configuration (prénom, couleur, niveau)
+        lexos-bienvenue
+        [ -f "$HOME/.lexos/profil" ] && . "$HOME/.lexos/profil"
+    elif command -v lexos-menu >/dev/null 2>&1; then
         lexos-menu
     else
         printf '\e[1;38;2;248;120;0m❯_ LexOS Pro\e[0m  \e[2m· terminal québécois\e[0m\n'

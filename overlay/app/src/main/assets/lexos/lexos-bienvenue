@@ -1,0 +1,98 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# =====================================================================
+#  lexos-bienvenue — accueil du 1er démarrage (débutant friendly).
+#  Demande prénom, couleur, niveau ; installe ce qui manque ; crée le
+#  profil (~/.lexos/profil). Lancé une fois par lexos.sh, ou « lexos profil ».
+# =====================================================================
+set -u
+O=$'\e[1;38;2;248;120;0m'   # orange LexOS
+G=$'\e[1;38;2;118;185;0m'   # vert lime
+BL=$'\e[1;38;2;54;198;224m' # bleu Québec
+RED=$'\e[1;38;2;255;23;68m' # rouge
+D=$'\e[2m'; R=$'\e[0m'
+
+CFG="$HOME/.lexos/config"
+PROFIL="$HOME/.lexos/profil"
+mkdir -p "$HOME/.lexos"; touch "$CFG"
+
+clear 2>/dev/null
+# Logo s'il est là
+if command -v chafa >/dev/null 2>&1 && [ -f "$HOME/.lexos/menu-gauche.png" ]; then
+    chafa --center on --size="40x20" "$HOME/.lexos/menu-gauche.png" 2>/dev/null
+fi
+printf "%s❯_ Bienvenue dans LexOS Pro !%s  %s· terminal québécois%s\n\n" "$O" "$R" "$D" "$R"
+printf "%sOn configure ça en 3 petites questions.%s\n\n" "$D" "$R"
+
+# 1) Prénom -> LEXOS_NAME (dans config, comme « lexos nom »)
+printf "%s1)%s Ton prénom (pour l'invite) %s[ti-lex]%s ❯ " "$O" "$R" "$D" "$R"
+read -r NAME || NAME=""
+[ -z "$NAME" ] && NAME="ti-lex"
+NAME=$(printf '%s' "$NAME" | tr -d '"' | cut -c1-20)
+grep -v '^LEXOS_NAME=' "$CFG" > "$CFG.tmp" 2>/dev/null || true
+mv "$CFG.tmp" "$CFG" 2>/dev/null || true
+printf 'LEXOS_NAME="%s"\n' "$NAME" >> "$CFG"
+
+# 2) Couleur
+printf "\n%s2)%s Ta couleur préférée :\n" "$O" "$R"
+printf "   %s1%s %sOrange%s   %s2%s %sVert Matrix%s   %s3%s %sBleu Québec%s   %s4%s %sRouge%s\n" \
+    "$O" "$R" "$O" "$R" "$O" "$R" "$G" "$R" "$O" "$R" "$BL" "$R" "$O" "$R" "$RED" "$R"
+printf "   choix %s[1]%s ❯ " "$D" "$R"
+read -r COL || COL=""
+case "$COL" in
+    2) LEXOS_COLOR="57;255;136" ;;
+    3) LEXOS_COLOR="54;198;224" ;;
+    4) LEXOS_COLOR="255;23;68" ;;
+    *) LEXOS_COLOR="248;120;0" ;;
+esac
+
+# 3) Niveau
+printf "\n%s3)%s Ton niveau :\n" "$O" "$R"
+printf "   %s1%s Débutant %s(tout par numéros, explications)%s   %s2%s Pro %s(mode libre)%s\n" \
+    "$O" "$R" "$D" "$R" "$O" "$R" "$D" "$R"
+printf "   choix %s[1]%s ❯ " "$D" "$R"
+read -r LV || LV=""
+case "$LV" in
+    2|pro|Pro) LEXOS_LEVEL="pro"; LEXOS_EXPLIQUE="off" ;;
+    *)         LEXOS_LEVEL="debutant"; LEXOS_EXPLIQUE="on" ;;
+esac
+
+# Sauvegarde du profil
+cat > "$PROFIL" <<EOF
+# Profil LexOS (créé par lexos-bienvenue ; refaire : lexos profil)
+LEXOS_LEVEL="$LEXOS_LEVEL"
+LEXOS_COLOR="$LEXOS_COLOR"
+LEXOS_EXPLIQUE="$LEXOS_EXPLIQUE"
+EOF
+
+# Installe ce qui manque, avec une petite barre de progression
+need="curl jq dialog chafa"
+manque=""
+for p in $need; do command -v "$p" >/dev/null 2>&1 || manque="$manque $p"; done
+if [ -n "$manque" ]; then
+    printf "\n%sInstallation des outils de base…%s\n" "$D" "$R"
+    set -- $manque
+    total=$#; i=0
+    for p in "$@"; do
+        i=$((i+1)); pct=$(( i * 100 / total ))
+        fill=$(( pct / 5 )); bar=""
+        for _ in $(seq 1 20); do [ "$fill" -gt 0 ] && { bar="$bar█"; fill=$((fill-1)); } || bar="$bar░"; done
+        printf "\r%s[%s] %3d%%%s  %s" "$O" "$bar" "$pct" "$R" "$p"
+        pkg install -y "$p" >/dev/null 2>&1
+    done
+    printf "\r%s[████████████████████] 100%%%s  terminé        \n" "$G" "$R"
+fi
+
+printf "\n%s✅ Bonjour %s !%s  Profil créé.%s\n" "$G" "$NAME" "$R" "$R"
+printf "%s(Pour tout refaire : %slexos profil%s)%s\n\n" "$D" "$O" "$D" "$R"
+
+# Propose de démarrer l'IA locale
+printf "Démarrer l'IA locale maintenant ? %s[o/N]%s ❯ " "$D" "$R"
+read -r rep || rep=""
+case "$rep" in o|O|y|Y|oui) command -v lexos-ia >/dev/null 2>&1 && lexos-ia ;; esac
+
+# Débutant -> on ouvre le mode facile (retour au shell en quittant)
+if [ "$LEXOS_LEVEL" = "debutant" ] && command -v lexos-facile >/dev/null 2>&1; then
+    printf "\n%sOn démarre en mode facile (débutant)…%s\n" "$D" "$R"
+    sleep 1
+    lexos-facile
+fi
