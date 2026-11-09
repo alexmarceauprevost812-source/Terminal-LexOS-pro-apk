@@ -7,6 +7,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
@@ -501,6 +502,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 try (InputStream in = new FileInputStream(colorsFile)) {
                     props.load(in);
                 }
+            } else {
+                // LexOS : pas de colors.properties -> thème LexOS (nuit noir/orange, jour blanc). Le fichier de l'utilisateur gagne toujours.
+                props.putAll(LexosTheme.defaultColors(isNightMode()));
             }
 
             TerminalColors.COLOR_SCHEME.updateWith(props);
@@ -515,6 +519,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }
+    }
+
+    private boolean isNightMode() {
+        final int mode = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return mode != Configuration.UI_MODE_NIGHT_NO;
     }
 
     public void updateBackgroundColor() {

@@ -1,3 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- LexOS : orange néon (nuit) et orange foncé (jour, lisible sur blanc). Voir LexosTheme.java. -->
+    <color name="lexos_orange">#FF6A1A</color>
+    <color name="lexos_orange_day">#C2410C</color>
 </resources>
