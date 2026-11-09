@@ -216,8 +216,38 @@ clean {
     }
 }
 
+// LexOS : le bootstrap officiel de Termux est construit pour /data/data/com.termux ; il ne fonctionne PAS sous
+// com.lexos.terminal. Pour un APK utilisable, construire le bootstrap avec termux-packages (voir docs/BOOTSTRAP.md)
+// puis passer son dossier : ./gradlew assembleRelease -PlexosBootstrapDir=/chemin/vers/dossier
+// (ou la variable d'environnement LEXOS_BOOTSTRAP_DIR). Ce dossier doit contenir bootstrap-aarch64.zip (obligatoire)
+// et, au choix, bootstrap-arm.zip / -i686.zip / -x86_64.zip. Aucune vérification de somme : c'est TON build.
+def lexosBootstrapDir = project.findProperty("lexosBootstrapDir") ?: System.getenv("LEXOS_BOOTSTRAP_DIR")
+
 task downloadBootstraps() {
     doLast {
+        if (lexosBootstrapDir) {
+            def dir = new File(lexosBootstrapDir.toString())
+            def aarch64 = new File(dir, "bootstrap-aarch64.zip")
+            if (!aarch64.isFile()) throw new GradleException("LexOS : " + aarch64 + " introuvable (lexosBootstrapDir)")
+            ["aarch64", "arm", "i686", "x86_64"].each { arch ->
+                def src = new File(dir, "bootstrap-" + arch + ".zip")
+                def dst = new File(projectDir, "src/main/cpp/bootstrap-" + arch + ".zip")
+                if (src.isFile()) {
+                    dst.parentFile.mkdirs()
+                    java.nio.file.Files.copy(src.toPath(), dst.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                } else {
+                    // Le JNI embarque les 4 architectures : une archive vide valide pour celles qu'on ne construit pas.
+                    dst.parentFile.mkdirs()
+                    new java.util.zip.ZipOutputStream(new FileOutputStream(dst)).withCloseable { z ->
+                        z.putNextEntry(new java.util.zip.ZipEntry("SYMLINKS.txt")); z.closeEntry()
+                    }
+                    logger.quiet("LexOS : " + src.name + " absent -> archive vide (cette architecture ne fonctionnera pas)")
+                }
+            }
+            logger.quiet("LexOS : bootstrap personnalisé utilisé depuis " + dir)
+            return
+        }
+        logger.warn("LEXOS ATTENTION : bootstrap OFFICIEL Termux (com.termux) -> l'APK compile mais 'pkg install' et le shell ne fonctionneront PAS sous com.lexos.terminal. Voir docs/BOOTSTRAP.md.")
         def packageVariant = project.ext.packageVariant
         if (packageVariant == "apt-android-7") {
             def version = "2026.02.12-r1" + "%2B" + "apt.android-7"

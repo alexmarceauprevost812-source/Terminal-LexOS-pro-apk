@@ -481,6 +481,51 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
+    /**
+     * LexOS : balayage à deux doigts (gauche/droite) pour changer de session, avec une courte animation.
+     * N'intercepte rien (retourne toujours false) : le défilement et le zoom restent ceux de Termux.
+     */
+    private void installLexosSessionSwipe() {
+        final float minDistance = 64f * getResources().getDisplayMetrics().density;
+        final float[] start = new float[2];
+        final boolean[] tracking = {false};
+        mTerminalView.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_POINTER_DOWN:
+                    if (ev.getPointerCount() == 2) {
+                        start[0] = (ev.getX(0) + ev.getX(1)) / 2f;
+                        start[1] = (ev.getY(0) + ev.getY(1)) / 2f;
+                        tracking[0] = true;
+                    } else {
+                        tracking[0] = false;
+                    }
+                    break;
+                case android.view.MotionEvent.ACTION_POINTER_UP:
+                    if (tracking[0] && ev.getPointerCount() == 2) {
+                        tracking[0] = false;
+                        final float dx = (ev.getX(0) + ev.getX(1)) / 2f - start[0];
+                        final float dy = (ev.getY(0) + ev.getY(1)) / 2f - start[1];
+                        final int dir = com.termux.app.terminal.LexosSwipe.decide(dx, dy, minDistance);
+                        if (dir != com.termux.app.terminal.LexosSwipe.NONE && mTermuxTerminalSessionActivityClient != null) {
+                            mTermuxTerminalSessionActivityClient.switchToSession(dir == com.termux.app.terminal.LexosSwipe.NEXT);
+                            final float from = (dir == com.termux.app.terminal.LexosSwipe.NEXT ? 1 : -1) * v.getWidth() * 0.25f;
+                            v.setTranslationX(from);
+                            v.setAlpha(0.4f);
+                            v.animate().translationX(0f).alpha(1f).setDuration(180).start();
+                        }
+                    }
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    tracking[0] = false;
+                    break;
+                default:
+                    break;
+            }
+            return false;
+        });
+    }
+
     private void setTermuxTerminalViewAndClients() {
         // Set termux terminal view and session clients
         mTermuxTerminalSessionActivityClient = new TermuxTerminalSessionActivityClient(this);
@@ -489,6 +534,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Set termux terminal view
         mTerminalView = findViewById(R.id.terminal_view);
         mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+        installLexosSessionSwipe();
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
