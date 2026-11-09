@@ -120,6 +120,8 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (!mActivity.isVisible()) return;
 
         if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalView().onScreenUpdated();
+        else if (mActivity.lexosIsSplit() && mActivity.getLexosOtherTerminalView().getCurrentSession() == changedSession)
+            mActivity.getLexosOtherTerminalView().onScreenUpdated();
     }
 
     @Override
@@ -294,10 +296,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void setCurrentSession(TerminalSession session) {
         if (session == null) return;
 
+        mActivity.lexosValidateSplit();
+        final TerminalSession lexosOtherSession = mActivity.lexosOnActiveSessionChanged(session);
+
         if (mActivity.getTerminalView().attachSession(session)) {
             // notify about switched session if not already displaying the session
             notifyOfSessionChange();
         }
+
+        // LexOS : la session venait de l'autre volet -> l'autre volet reprend l'ancienne session active.
+        if (lexosOtherSession != null) mActivity.getLexosOtherTerminalView().attachSession(lexosOtherSession);
 
         // We call the following even when the session is already being displayed since config may
         // be stale, like current session not selected or scrolled to.
@@ -436,6 +444,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
+        mActivity.lexosSessionRemoved(finishedSession);   // LexOS : ferme la division si cette session y était
         int index = service.removeTermuxSession(finishedSession);
 
         int size = service.getTermuxSessionsSize();
@@ -516,6 +525,13 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
             final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
             mActivity.getTerminalView().setTypeface(newTypeface);
+            if (mActivity.lexosIsSplit()) {   // LexOS : même police/couleurs dans l'autre volet
+                final com.termux.view.TerminalView other = mActivity.getLexosOtherTerminalView();
+                other.setTypeface(newTypeface);
+                final TerminalSession os = other.getCurrentSession();
+                if (os != null && os.getEmulator() != null) os.getEmulator().mColors.reset();
+                other.invalidate();
+            }
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }

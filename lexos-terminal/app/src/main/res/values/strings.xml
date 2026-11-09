@@ -235,4 +235,6 @@
     <!-- Donate Preference -->
     <string name="donate_preference_title">Donate</string>
 
+    <string name="action_lexos_split">Diviser l\'écran</string>
+    <string name="action_lexos_close_split">Fermer la division</string>
 </resources>

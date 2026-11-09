@@ -76,6 +76,9 @@ l'APK ne fonctionnera pas dessus. APK : `app/build/outputs/apk/debug/`.
 5. `python --version`, `git --version`, `ssh -V`.
 6. Les couleurs : fond noir + curseur orange la nuit ; fond blanc le jour (si pas de `~/.termux/colors.properties`).
 7. Balayage à deux doigts gauche/droite : change de session avec une courte animation.
+8. Appui long dans le terminal → « Diviser l'écran » : deux volets (haut/bas). Toucher l'autre volet lui donne le clavier
+   (il devient net, l'autre est estompé). Taper dans chaque volet, `exit` dans l'un, rotation de l'écran, bascule vers la
+   même session depuis le tiroir, puis « Fermer la division ». La division n'est pas conservée après une rotation.
 
 ## Points de vigilance
 

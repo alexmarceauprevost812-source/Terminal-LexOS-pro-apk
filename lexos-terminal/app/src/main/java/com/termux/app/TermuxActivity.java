@@ -54,6 +54,8 @@ import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.view.ViewUtils;
+import com.termux.shared.view.KeyboardUtils;
+import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
@@ -65,7 +67,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A terminal emulator activity.
@@ -90,6 +94,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * The {@link TerminalView} shown in  {@link TermuxActivity} that displays the terminal.
      */
     TerminalView mTerminalView;
+
+    /** LexOS : volet sans focus (caché tant que l'écran n'est pas divisé) et état de la division. */
+    TerminalView mOtherTerminalView;
+    com.termux.app.terminal.LexosSecondaryPaneClient mLexosSecondaryClient;
+    com.termux.app.terminal.LexosSplitModel<TerminalSession> mLexosSplit;
 
     /**
      *  The {@link TerminalViewClient} interface implementation to allow for communication between
@@ -188,6 +197,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int CONTEXT_MENU_HELP_ID = 7;
     private static final int CONTEXT_MENU_SETTINGS_ID = 8;
     private static final int CONTEXT_MENU_REPORT_ID = 9;
+    private static final int CONTEXT_MENU_LEXOS_SPLIT_ID = 12;
 
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
@@ -252,6 +262,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setToggleKeyboardView();
 
         registerForContextMenu(mTerminalView);
+        registerForContextMenu(mOtherTerminalView);
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
 
@@ -485,11 +496,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * LexOS : balayage à deux doigts (gauche/droite) pour changer de session, avec une courte animation.
      * N'intercepte rien (retourne toujours false) : le défilement et le zoom restent ceux de Termux.
      */
-    private void installLexosSessionSwipe() {
+    private void installLexosSessionSwipe(final TerminalView target) {
         final float minDistance = 64f * getResources().getDisplayMetrics().density;
         final float[] start = new float[2];
         final boolean[] tracking = {false};
-        mTerminalView.setOnTouchListener((v, ev) -> {
+        target.setOnTouchListener((v, ev) -> {
+            if (v != mTerminalView) return false;   // seul le volet actif réagit au balayage
             switch (ev.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_POINTER_DOWN:
                     if (ev.getPointerCount() == 2) {
@@ -534,7 +546,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Set termux terminal view
         mTerminalView = findViewById(R.id.terminal_view);
         mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
-        installLexosSessionSwipe();
+
+        mOtherTerminalView = findViewById(R.id.terminal_view_2);
+        mLexosSecondaryClient = new com.termux.app.terminal.LexosSecondaryPaneClient(this);
+        mOtherTerminalView.setTerminalViewClient(mLexosSecondaryClient);
+        installLexosSessionSwipe(mTerminalView);
+        installLexosSessionSwipe(mOtherTerminalView);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -689,6 +706,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_PASSWORD, Menu.NONE, R.string.action_autofill_password);
         menu.add(Menu.NONE, CONTEXT_MENU_RESET_TERMINAL_ID, Menu.NONE, R.string.action_reset_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
+        menu.add(Menu.NONE, CONTEXT_MENU_LEXOS_SPLIT_ID, Menu.NONE, lexosIsSplit() ? R.string.action_lexos_close_split : R.string.action_lexos_split);
         menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
         menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
@@ -728,6 +746,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case CONTEXT_MENU_KILL_PROCESS_ID:
                 showKillSessionDialog(session);
+                return true;
+            case CONTEXT_MENU_LEXOS_SPLIT_ID:
+                lexosToggleSplit();
                 return true;
             case CONTEXT_MENU_STYLING_ID:
                 showStylingDialog();
@@ -921,6 +942,99 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public TermuxService getTermuxService() {
         return mTermuxService;
+    }
+
+    public TerminalView getLexosOtherTerminalView() {
+        return mOtherTerminalView;
+    }
+
+    public boolean lexosIsSplit() {
+        return mLexosSplit != null && mLexosSplit.isSplit();
+    }
+
+    private List<TerminalSession> lexosAliveSessions() {
+        final List<TerminalSession> all = new ArrayList<>();
+        if (mTermuxService != null)
+            for (TermuxSession ts : mTermuxService.getTermuxSessions()) all.add(ts.getTerminalSession());
+        return all;
+    }
+
+    /** Active ou ferme la division (menu contextuel du terminal : appui long). */
+    public void lexosToggleSplit() {
+        if (lexosIsSplit()) { lexosCloseSplit(); return; }
+        final TerminalSession cur = getCurrentSession();
+        if (mTermuxService == null || cur == null) return;
+
+        mLexosSplit = new com.termux.app.terminal.LexosSplitModel<>(cur);
+        TerminalSession other = mLexosSplit.split(lexosAliveSessions());
+        if (other == null) {
+            // Une seule session : on en crée une (elle s'affiche d'abord dans le volet actif), puis on les répartit.
+            mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+            final TerminalSession created = getCurrentSession();
+            if (created == null || created == cur) { mLexosSplit = null; return; }   // création refusée (limite de sessions)
+            mTerminalView.attachSession(cur);
+            mLexosSplit = new com.termux.app.terminal.LexosSplitModel<>(cur);
+            if (!mLexosSplit.splitWith(created)) { mLexosSplit = null; return; }
+            other = created;
+            mTermuxTerminalSessionActivityClient.checkAndScrollToSession(cur);
+        }
+        mOtherTerminalView.setTerminalViewClient(mLexosSecondaryClient);
+        int size = mTerminalView.getTextSize();
+        if (size <= 0) size = mPreferences.getFontSize();
+        mOtherTerminalView.setTextSize(size);
+        findViewById(R.id.terminal_split_divider).setVisibility(View.VISIBLE);
+        mOtherTerminalView.setVisibility(View.VISIBLE);
+        mOtherTerminalView.attachSession(other);
+        mTermuxTerminalSessionActivityClient.checkForFontAndColors();
+        lexosUpdatePaneFocusCue();
+    }
+
+    public void lexosCloseSplit() {
+        if (mLexosSplit != null) mLexosSplit.unsplit();
+        findViewById(R.id.terminal_split_divider).setVisibility(View.GONE);
+        mOtherTerminalView.setVisibility(View.GONE);
+        mOtherTerminalView.setAlpha(1f);
+        mTerminalView.setAlpha(1f);
+        mTerminalView.requestFocus();
+    }
+
+    /** Le volet actif est à pleine intensité ; l'autre est légèrement estompé. */
+    private void lexosUpdatePaneFocusCue() {
+        mTerminalView.setAlpha(1f);
+        mOtherTerminalView.setAlpha(lexosIsSplit() ? 0.7f : 1f);
+    }
+
+    /** Toucher le volet sans focus : il devient le volet actif (client complet de Termux, clavier, liste de sessions). */
+    public void lexosFocusOtherPane() {
+        if (!lexosIsSplit() || !mLexosSplit.focusOther()) return;
+        final TerminalView t = mTerminalView;
+        mTerminalView = mOtherTerminalView;
+        mOtherTerminalView = t;
+        mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+        mOtherTerminalView.setTerminalViewClient(mLexosSecondaryClient);
+        final int size = mOtherTerminalView.getTextSize();
+        if (size > 0 && mTerminalView.getTextSize() != size) mTerminalView.setTextSize(size);
+        lexosUpdatePaneFocusCue();
+        mTerminalView.requestFocus();
+        mTermuxTerminalSessionActivityClient.checkAndScrollToSession(mTerminalView.getCurrentSession());
+        mTermuxTerminalSessionActivityClient.updateBackgroundColor();
+        termuxSessionListNotifyUpdated();
+        if (!KeyboardUtils.areDisableSoftKeyboardFlagsSet(this)) KeyboardUtils.showSoftKeyboard(this, mTerminalView);
+    }
+
+    /** Appelé quand le volet actif affiche une autre session. Retourne la session que l'autre volet doit prendre, ou null. */
+    public TerminalSession lexosOnActiveSessionChanged(TerminalSession s) {
+        if (!lexosIsSplit()) return null;
+        return mLexosSplit.setActive(s) ? mLexosSplit.other() : null;
+    }
+
+    public void lexosSessionRemoved(TerminalSession s) {
+        if (mLexosSplit != null && mLexosSplit.sessionRemoved(s)) lexosCloseSplit();
+    }
+
+    /** Ferme la division si l'autre session n'existe plus. */
+    public void lexosValidateSplit() {
+        if (mLexosSplit != null && mLexosSplit.validate(lexosAliveSessions())) lexosCloseSplit();
     }
 
     public TerminalView getTerminalView() {
