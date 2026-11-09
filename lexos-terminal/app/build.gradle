@@ -41,6 +41,7 @@ android {
     }
 
     defaultConfig {
+        applicationId "com.lexos.terminal" // LexOS Terminal : doit être identique à TermuxConstants.TERMUX_PACKAGE_NAME
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         versionCode 118
@@ -51,14 +52,14 @@ android {
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
-        manifestPlaceholders.TERMUX_APP_NAME = "Termux"
-        manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
-        manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
-        manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "Termux:Float"
-        manifestPlaceholders.TERMUX_STYLING_APP_NAME = "Termux:Styling"
-        manifestPlaceholders.TERMUX_TASKER_APP_NAME = "Termux:Tasker"
-        manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "Termux:Widget"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.lexos.terminal"
+        manifestPlaceholders.TERMUX_APP_NAME = "LexOS Terminal"
+        manifestPlaceholders.TERMUX_API_APP_NAME = "LexOS Terminal:API"
+        manifestPlaceholders.TERMUX_BOOT_APP_NAME = "LexOS Terminal:Boot"
+        manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "LexOS Terminal:Float"
+        manifestPlaceholders.TERMUX_STYLING_APP_NAME = "LexOS Terminal:Styling"
+        manifestPlaceholders.TERMUX_TASKER_APP_NAME = "LexOS Terminal:Tasker"
+        manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "LexOS Terminal:Widget"
 
         externalNativeBuild {
             ndkBuild {
