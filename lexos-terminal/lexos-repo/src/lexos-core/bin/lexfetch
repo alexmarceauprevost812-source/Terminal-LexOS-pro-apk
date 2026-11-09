@@ -1,0 +1,10 @@
+#!@PREFIX@/bin/bash
+# lexfetch — résumé système en une ligne par info (aucun paquet requis).
+O=$'\e[1;38;2;255;106;26m'; R=$'\e[0m'
+printf '%s❯_ LexOS Terminal%s\n' "$O" "$R"
+printf '  appareil : %s\n' "$(getprop ro.product.model 2>/dev/null || echo ?)"
+printf '  android  : %s\n' "$(getprop ro.build.version.release 2>/dev/null || echo ?)"
+printf '  noyau    : %s\n' "$(uname -r)"
+printf '  arch     : %s\n' "$(uname -m)"
+printf '  préfixe  : %s\n' "${PREFIX:-?}"
+printf '  stockage : %s\n' "$(df -h "$HOME" 2>/dev/null | awk 'NR==2{print $3" / "$2}')"

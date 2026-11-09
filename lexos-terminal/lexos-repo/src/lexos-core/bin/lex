@@ -1,0 +1,92 @@
+#!@PREFIX@/bin/bash
+# =====================================================================
+#  lex — tu écris en français, l'IA locale propose UNE commande,
+#        et TOI tu décides si elle s'exécute. Jamais d'exécution automatique.
+#
+#  Usage : lex qu'est-ce qui prend de la place dans mon dossier
+#  Règles :
+#   - la commande est affichée AVANT tout ; rien ne part sans ton « oui » tapé au clavier ;
+#   - la réponse est lue sur le terminal (/dev/tty) : un pipe ou un script ne peut pas répondre à ta place ;
+#   - sans terminal (cron, pipe…) la commande est seulement affichée, jamais lancée ;
+#   - les commandes jugées dangereuses ou « root » sont refusées (liste simple : ce n'est pas une garantie).
+# =====================================================================
+set -u
+O=$'\e[1;38;2;255;106;26m'; G=$'\e[38;2;118;185;0m'; D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+[ -f "$HOME/.lexos/config" ] && . "$HOME/.lexos/config"
+URL="${LEXAI_LLAMA_URL:-http://127.0.0.1:8080}"
+LOG="$HOME/.lexos/lex.log"
+
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  printf '%slex%s : dis ce que tu veux faire, en français.\n  Exemple : lex quels fichiers prennent le plus de place ici\n' "$O" "$R"
+  printf '%sL'"'"'IA propose une commande ; elle ne s'"'"'exécute qu'"'"'avec ton « oui ».%s\n' "$D" "$R"
+  exit 0
+fi
+for c in curl jq; do
+  command -v "$c" >/dev/null 2>&1 || { printf '%sIl manque %s.%s Fais : pkg install %s\n' "$RED" "$c" "$R" "$c"; exit 1; }
+done
+
+# Commandes qu'on refuse de proposer à l'exécution (heuristique simple).
+dangereuse() {
+  local c=" $1 "
+  printf '%s' "$c" | grep -Eqi \
+    -e '(^|[;&|[:space:]])(sudo|su|tsu|doas)([[:space:]]|$)' \
+    -e 'rm[[:space:]]+(-[a-z]*[rf][a-z]*[[:space:]]+)+(/|~|\$HOME|\*|\.)([[:space:]]|$)' \
+    -e 'mkfs|fdisk|wipefs|shred' \
+    -e 'dd[[:space:]].*of=/dev/' \
+    -e '>[[:space:]]*/dev/(sd|mmcblk|block)' \
+    -e ':\(\)[[:space:]]*\{' \
+    -e 'chmod[[:space:]]+-R[[:space:]]+[0-7]*7[[:space:]]+(/|~)' \
+    -e '(curl|wget)[^|]*\|[[:space:]]*(sh|bash|zsh)' \
+    -e '(^|[;&|[:space:]])(reboot|shutdown|poweroff|halt)([[:space:]]|$)'
+}
+
+request="$*"
+system="Tu aides un utilisateur dans Termux sur Android (sans root, jamais sudo). Il écrit en français.
+Réponds avec EXACTEMENT deux lignes :
+1) UNE seule commande shell (pas de bloc de code, pas de guillemets autour).
+2) EXPLICATION: une phrase courte en français.
+Si la demande est impossible ou dangereuse, réponds seulement : IMPOSSIBLE"
+
+printf '%s❯_ lex%s %sréfléchit…%s\n' "$O" "$R" "$D" "$R"
+payload=$(jq -n --arg s "$system" --arg u "$request" \
+  '{stream:false, temperature:0.1, messages:[{role:"system",content:$s},{role:"user",content:$u}]}')
+resp=$(curl -s --max-time 120 "$URL/v1/chat/completions" -H 'Content-Type: application/json' -d "$payload" 2>/dev/null) || resp=""
+content=$(printf '%s' "$resp" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
+if [ -z "$content" ]; then
+  printf '%sL'"'"'IA locale ne répond pas%s (%s). Démarre-la avec : lexos ia\n' "$RED" "$R" "$URL"; exit 1
+fi
+
+# Première ligne utile = la commande ; on ignore les clôtures ``` et un éventuel « $ ».
+cmd=$(printf '%s\n' "$content" | sed -e 's/\r$//' | grep -v '^[[:space:]]*```' | grep -v '^[[:space:]]*$' | head -n 1)
+cmd=${cmd#\$ }
+expl=$(printf '%s\n' "$content" | grep -i '^EXPLICATION:' | head -n 1 | sed 's/^[Ee][Xx][Pp][Ll][Ii][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//')
+
+if [ -z "$cmd" ] || [ "$cmd" = "IMPOSSIBLE" ] || printf '%s' "$cmd" | grep -qi '^EXPLICATION:'; then
+  printf '%sL'"'"'IA n'"'"'a pas de commande sûre pour ça.%s Reformule ta demande.\n' "$O" "$R"; exit 1
+fi
+
+printf '\n%sCommande proposée :%s\n  %s%s%s\n' "$O" "$R" "$G" "$cmd" "$R"
+[ -n "$expl" ] && printf '%s%s%s\n' "$D" "$expl" "$R"
+mkdir -p "$HOME/.lexos" 2>/dev/null
+log() { printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$1" "$request" "$cmd" >> "$LOG" 2>/dev/null; }
+
+if dangereuse "$cmd"; then
+  printf '\n%sREFUSÉ%s : cette commande est jugée dangereuse (ou demande root). Elle ne sera PAS lancée par lex.\n' "$RED" "$R"
+  log refuse; exit 2
+fi
+
+# On ne lit la réponse que sur le terminal : aucun pipe/script ne peut confirmer à ta place.
+if ! { : < /dev/tty; } 2>/dev/null; then
+  printf '\n%sPas de terminal : commande affichée seulement, non exécutée.%s\n' "$D" "$R"; log affichee; exit 0
+fi
+printf '\nLancer cette commande ? Tape %soui%s pour confirmer (Entrée = non) : ' "$O" "$R"
+read -r ans < /dev/tty || ans=""
+case "$ans" in
+  oui|OUI|Oui|o|O) ;;
+  *) printf '%sAnnulé. Rien n'"'"'a été exécuté.%s\n' "$D" "$R"; log annule; exit 0 ;;
+esac
+log lance
+bash -c "$cmd"
+rc=$?
+printf '\n%s(code de sortie : %s)%s\n' "$D" "$rc" "$R"
+exit "$rc"

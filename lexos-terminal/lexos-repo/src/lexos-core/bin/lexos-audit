@@ -1,0 +1,139 @@
+#!@PREFIX@/bin/bash
+# =====================================================================
+#  lexos-audit — menu d'audit en un clic, SANS root, sur TES appareils/réseaux.
+#  - installe seul ce qui manque (avec ta confirmation) ;
+#  - nmap en mode « connect » uniquement (-sT) : pas de raw sockets (impossible sans root sur Android) ;
+#  - cibles : tes appareils (réseau privé) ; toute autre cible exige une phrase d'autorisation tapée ;
+#  - chaque scan est noté dans ~/.lexos/audit.log.
+#  ⚠️ Usage légal seulement : audite ce qui t'appartient ou ce pour quoi tu as une autorisation écrite.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;255;106;26m'; G=$'\e[38;2;118;185;0m'; D=$'\e[2m'; RED=$'\e[1;31m'; R=$'\e[0m'
+LOG="$HOME/.lexos/audit.log"; mkdir -p "$HOME/.lexos" 2>/dev/null
+note() { printf '%s\t%s\t%s\n' "$(date '+%F %T')" "$1" "$2" >> "$LOG" 2>/dev/null; }
+ask() { local p="$1" a; printf '%s' "$p" >&2; read -r a || a=""; printf '%s' "$a"; }
+
+# --- validation des cibles -------------------------------------------------
+valid_host() {  # IPv4 ou nom d'hôte ; jamais de tiret en tête (évite l'injection d'option)
+  local h="$1"
+  [ -n "$h" ] && [ "${#h}" -le 253 ] || return 1
+  case "$h" in -*|*..*|.*|*.) return 1 ;; esac
+  printf '%s' "$h" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9.-]*$' || return 1
+  if printf '%s' "$h" | grep -Eq '^[0-9.]+$'; then   # ressemble à une IPv4 : la vérifier vraiment
+    printf '%s' "$h" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' || return 1
+    local IFS=.; set -- $h
+    for o in "$@"; do [ "$o" -le 255 ] || return 1; done
+  fi
+  return 0
+}
+valid_cidr() {  # a.b.c.d/24 .. /32 (pas de scan géant)
+  printf '%s' "$1" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}/(2[4-9]|3[0-2])$' || return 1
+  valid_host "${1%/*}"
+}
+est_prive() {   # 10/8, 172.16/12, 192.168/16, 127/8, localhost
+  case "$1" in
+    localhost|127.*|10.*|192.168.*) return 0 ;;
+    172.*) local s="${1#172.}"; s="${s%%.*}"; [ "$s" -ge 16 ] 2>/dev/null && [ "$s" -le 31 ] && return 0 ;;
+  esac
+  return 1
+}
+autorise() {    # cible non privée : phrase exacte à taper
+  local base="${1%/*}"
+  est_prive "$base" && return 0
+  printf '%s⚠ %s n'"'"'est pas sur un réseau privé.%s\n' "$RED" "$1" "$R" >&2
+  printf 'Ne continue que si c'"'"'est à toi ou si tu as une autorisation ÉCRITE.\n' >&2
+  local r; r=$(ask "Tape exactement : J'AI L'AUTORISATION > ")
+  [ "$r" = "J'AI L'AUTORISATION" ]
+}
+
+besoin() {      # besoin <commande> <paquet>
+  command -v "$1" >/dev/null 2>&1 && return 0
+  printf '%s%s est absent.%s Installer le paquet « %s » ? [O/n] ' "$O" "$1" "$R" "$2"
+  local r; read -r r || r=n
+  case "$r" in ""|o|O|y|Y) pkg install -y "$2" ;; *) return 1 ;; esac
+  command -v "$1" >/dev/null 2>&1
+}
+
+reseau_local() {  # devine le /24 du Wi-Fi (peut échouer sur Android récent : on le dit)
+  local ip=""
+  command -v ip >/dev/null 2>&1 && ip=$(ip -4 -o addr show wlan0 2>/dev/null | sed -n 's/.* inet \([0-9.]*\)\/.*/\1/p' | head -n1)
+  [ -z "$ip" ] && command -v ifconfig >/dev/null 2>&1 && ip=$(ifconfig wlan0 2>/dev/null | sed -n 's/.*inet \([0-9.]*\).*/\1/p' | head -n1)
+  [ -n "$ip" ] && printf '%s.0/24' "${ip%.*}"
+}
+
+lancer() {      # lancer <description> <commande...>
+  local d="$1"; shift
+  note "$d" "$*"
+  printf '\n%s▶ %s%s\n%s%s%s\n\n' "$O" "$d" "$R" "$D" "$*" "$R"
+  "$@"
+  printf '\n%s— Entrée pour revenir au menu —%s ' "$D" "$R"; read -r _ || true
+}
+
+scan_appareil() {
+  besoin nmap nmap || return 0
+  lancer "Scan de cet appareil" nmap -sT -Pn --top-ports 1000 127.0.0.1
+}
+scan_reseau() {
+  besoin nmap nmap || return 0
+  local c; c=$(reseau_local)
+  if [ -n "$c" ]; then printf 'Réseau détecté : %s%s%s\n' "$G" "$c" "$R"; c2=$(ask "Entrée = l'utiliser, ou tape un autre (ex. 192.168.1.0/24) > "); [ -n "$c2" ] && c="$c2"
+  else printf '%sRéseau non détecté (Android limite parfois cette info).%s\n' "$D" "$R"; c=$(ask "Tape ton réseau (ex. 192.168.1.0/24) > "); fi
+  valid_cidr "$c" || { printf '%sRéseau invalide (ex. 192.168.1.0/24, masque /24 à /32).%s\n' "$RED" "$R"; return 0; }
+  autorise "$c" || { printf '%sPhrase incorrecte : annulé.%s\n' "$RED" "$R"; return 0; }
+  printf '%sSans root, nmap teste les ports 80/443 : un appareil qui les ferme peut ne pas apparaître.%s\n' "$D" "$R"
+  lancer "Appareils du réseau $c" nmap -sn "$c"
+}
+scan_ports() {
+  besoin nmap nmap || return 0
+  local h; h=$(ask "Adresse de l'appareil à analyser (ex. 192.168.1.20) > ")
+  valid_host "$h" || { printf '%sAdresse invalide.%s\n' "$RED" "$R"; return 0; }
+  autorise "$h" || { printf '%sPhrase incorrecte : annulé.%s\n' "$RED" "$R"; return 0; }
+  lancer "Ports ouverts de $h" nmap -sT -Pn -sV --top-ports 1000 "$h"
+}
+entetes_web() {
+  command -v curl >/dev/null 2>&1 || { besoin curl curl || return 0; }
+  local u; u=$(ask "Adresse web à toi (ex. http://192.168.1.20:8080) > ")
+  printf '%s' "$u" | grep -Eq '^https?://[A-Za-z0-9][A-Za-z0-9.:-]*(/[A-Za-z0-9._~%/?=&-]*)?$' || { printf '%sAdresse invalide.%s\n' "$RED" "$R"; return 0; }
+  local host="${u#*://}"; host="${host%%[/:]*}"
+  valid_host "$host" || { printf '%sAdresse invalide.%s\n' "$RED" "$R"; return 0; }
+  autorise "$host" || { printf '%sPhrase incorrecte : annulé.%s\n' "$RED" "$R"; return 0; }
+  lancer "En-têtes web de $u" curl -sI --max-time 15 -- "$u"
+}
+sqlmap_perso() {
+  printf '%ssqlmap teste l'"'"'injection SQL. Seulement sur TON appli (ou avec autorisation écrite).%s\n' "$O" "$R"
+  if ! command -v sqlmap >/dev/null 2>&1; then
+    printf 'sqlmap n'"'"'est pas dans les paquets : installation par pip (python). Continuer ? [O/n] '
+    local r; read -r r || r=n
+    case "$r" in ""|o|O|y|Y) besoin python python && pip install --user sqlmap || return 0 ;; *) return 0 ;; esac
+    export PATH="$HOME/.local/bin:$PATH"
+  fi
+  local u; u=$(ask "URL de TON appli avec un paramètre (ex. http://192.168.1.20/page?id=1) > ")
+  printf '%s' "$u" | grep -Eq '^https?://[A-Za-z0-9][A-Za-z0-9.:-]*/[A-Za-z0-9._~%/?=&-]*$' || { printf '%sURL invalide.%s\n' "$RED" "$R"; return 0; }
+  local host="${u#*://}"; host="${host%%[/:]*}"
+  valid_host "$host" || { printf '%sAdresse invalide.%s\n' "$RED" "$R"; return 0; }
+  autorise "$host" || { printf '%sPhrase incorrecte : annulé.%s\n' "$RED" "$R"; return 0; }
+  lancer "sqlmap (niveau 1, risque 1) sur $u" sqlmap -u "$u" --level=1 --risk=1
+}
+
+menu() {
+  while :; do
+    clear 2>/dev/null
+    printf '%s❯_ Audit LexOS%s  %s(sans root · tes appareils seulement)%s\n\n' "$O" "$R" "$D" "$R"
+    printf '   %s1%s  🔎 Scanner cet appareil\n'                 "$O" "$R"
+    printf '   %s2%s  🌐 Trouver les appareils de mon réseau\n'   "$O" "$R"
+    printf '   %s3%s  🚪 Ports ouverts d'"'"'un appareil à moi\n'   "$O" "$R"
+    printf '   %s4%s  📄 En-têtes d'"'"'un site à moi\n'            "$O" "$R"
+    printf '   %s5%s  💉 sqlmap sur mon appli\n'                  "$O" "$R"
+    printf '   %s0%s  ↩  Retour\n\n'                              "$O" "$R"
+    printf '%snikto : pas dispo dans Termux (utilise « lexos kali »). Scans furtifs/raw : impossibles sans root.%s\n' "$D" "$R"
+    c=$(ask "choix > ")
+    case "$c" in
+      1) scan_appareil ;; 2) scan_reseau ;; 3) scan_ports ;; 4) entetes_web ;; 5) sqlmap_perso ;;
+      0|q|"") return 0 ;; *) printf '%sChoix inconnu.%s\n' "$RED" "$R"; sleep 1 ;;
+    esac
+  done
+}
+
+# Permet de tester les fonctions sans lancer le menu : LEXOS_AUDIT_SOURCE=1 . lexos-audit
+[ "${LEXOS_AUDIT_SOURCE:-}" = 1 ] && return 0 2>/dev/null
+menu

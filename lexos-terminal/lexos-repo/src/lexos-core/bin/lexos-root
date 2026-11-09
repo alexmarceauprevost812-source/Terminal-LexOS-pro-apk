@@ -1,0 +1,36 @@
+#!@PREFIX@/bin/bash
+# =====================================================================
+#  lexos-root — accès privilégié OPTIONNEL. DÉSACTIVÉ par défaut.
+#   lexos-root status          état actuel
+#   lexos-root on root         active le mode « root »    (nécessite un téléphone rooté : su)
+#   lexos-root on shizuku      active le mode « Shizuku » (nécessite Shizuku + le script rish)
+#   lexos-root off             désactive
+#   lexos-root run <commande>  lance UNE commande privilégiée, après confirmation tapée
+#  lex (l'IA) n'utilise JAMAIS ce mode. Sans root, le noyau Samsung reste ce qu'il est : rien n'est contourné.
+# =====================================================================
+set -u
+O=$'\e[1;38;2;255;106;26m'; D=$'\e[2m'; RED=$'\e[1;31m'; G=$'\e[38;2;118;185;0m'; R=$'\e[0m'
+F="$HOME/.lexos/privilege"
+mode() { local m=off; [ -f "$F" ] && m=$(head -n1 "$F"); case "$m" in root|shizuku) echo "$m" ;; *) echo off ;; esac; }
+case "${1:-status}" in
+  status) printf 'Mode privilégié : %s%s%s\n' "$O" "$(mode)" "$R"
+          command -v su   >/dev/null 2>&1 && echo "su : trouvé"     || echo "su : absent (téléphone non rooté)"
+          command -v rish >/dev/null 2>&1 && echo "rish : trouvé"   || echo "rish : absent (Shizuku non configuré pour Termux)" ;;
+  on)     case "${2:-}" in
+            root)    command -v su   >/dev/null 2>&1 || { printf '%ssu introuvable : téléphone non rooté.%s\n' "$RED" "$R"; exit 1; } ;;
+            shizuku) command -v rish >/dev/null 2>&1 || { printf '%srish introuvable : exporte-le depuis l'"'"'app Shizuku (Utiliser dans les terminaux).%s\n' "$RED" "$R"; exit 1; } ;;
+            *) echo "Usage : lexos-root on root|shizuku"; exit 1 ;;
+          esac
+          mkdir -p "$HOME/.lexos"; printf '%s\n' "$2" > "$F"; printf '%sMode %s activé.%s Chaque commande demandera ta confirmation.\n' "$G" "$2" "$R" ;;
+  off)    rm -f "$F"; printf 'Mode privilégié désactivé.\n' ;;
+  run)    shift; [ $# -gt 0 ] || { echo "Usage : lexos-root run <commande>"; exit 1; }
+          m=$(mode)
+          [ "$m" != off ] || { printf '%sMode privilégié désactivé.%s Active-le avec : lexos-root on root|shizuku\n' "$RED" "$R"; exit 1; }
+          { : < /dev/tty; } 2>/dev/null || { printf '%sPas de terminal : refusé.%s\n' "$RED" "$R"; exit 1; }
+          printf '%sCommande PRIVILÉGIÉE (%s) :%s\n  %s\nTape %soui%s pour confirmer : ' "$RED" "$m" "$R" "$*" "$O" "$R"
+          read -r a < /dev/tty || a=""
+          [ "$a" = oui ] || { echo "Annulé."; exit 0; }
+          cmd="$*"
+          if [ "$m" = root ]; then su -c "$cmd"; else rish -c "$cmd"; fi ;;
+  *) echo "Usage : lexos-root status|on root|on shizuku|off|run <commande>"; exit 1 ;;
+esac

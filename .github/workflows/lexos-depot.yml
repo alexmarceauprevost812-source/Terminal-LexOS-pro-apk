@@ -1,0 +1,33 @@
+name: Dépôt apt LexOS (manuel)
+# Déclenchement MANUEL seulement. Ne touche à aucune release. NON TESTÉ.
+on: workflow_dispatch
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency: { group: lexos-depot, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Importer la clé de signature (Secret)
+        env: { KEY: "${{ secrets.LEXOS_APT_GPG_KEY }}" }
+        run: |
+          test -n "$KEY" || { echo "Secret LEXOS_APT_GPG_KEY absent : pas de dépôt non signé."; exit 1; }
+          printf '%s' "$KEY" | gpg --batch --import
+      - name: Construire le dépôt
+        env: { GPG_ID: "${{ secrets.LEXOS_APT_GPG_ID }}" }
+        working-directory: lexos-terminal/lexos-repo
+        run: |
+          extra=""; [ -d extra-debs ] && extra="--extra-debs extra-debs"
+          ./build-repo.sh --out "$GITHUB_WORKSPACE/site" $extra --sign "$GPG_ID"
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
